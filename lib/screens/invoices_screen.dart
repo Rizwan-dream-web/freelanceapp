@@ -9,6 +9,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../models/models.dart';
 import '../services/currency_service.dart';
+import '../widgets/app_card.dart';
 
 class InvoicesScreen extends StatelessWidget {
   const InvoicesScreen({super.key});
@@ -20,8 +21,8 @@ class InvoicesScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('Invoices', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
         elevation: 0,
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
-        foregroundColor: Theme.of(context).appBarTheme.foregroundColor ?? Colors.black,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
       ),
       body: ValueListenableBuilder(
         valueListenable: Hive.box<Invoice>('invoices').listenable(),
@@ -49,95 +50,100 @@ class InvoicesScreen extends StatelessWidget {
               final invoice = invoices[index];
               final isPaid = invoice.status == 'Paid';
               final isOverdue = !isPaid && DateTime.now().difference(invoice.date).inDays > 30;
-              return Card(
-                color: Theme.of(context).cardColor,
-                margin: const EdgeInsets.only(bottom: 16),
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                child: InkWell(
-                  onTap: () => _showOptionsDialog(context, invoice),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Stack(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        invoice.clientName,
-                                        style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
-                                      ),
-                                      if (invoice.isExternal)
-                                        Text('External Invoice', style: GoogleFonts.poppins(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.bold))
-                                      else if (invoice.projectId != null)
-                                        Text('Project-based', style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey)),
-                                    ],
-                                  ),
-                                ),
-                                 Text(
-                                   CurrencyService.format(invoice.amount, invoice.currency),
-                                   style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
-                                 ),
-                              ],
+
+              return AppCard(
+                padding: EdgeInsets.zero,
+                onTap: () => _showOptionsDialog(context, invoice),
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: (isPaid ? Colors.green : (isOverdue ? Colors.red : Colors.orange)).withOpacity(0.1),
+                              shape: BoxShape.circle,
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Icon(Icons.calendar_today, size: 14, color: Colors.grey[600]),
-                                const SizedBox(width: 4),
-                                Text(
-                                  DateFormat.yMMMd().format(invoice.date),
-                                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
-                                ),
-                                const Spacer(),
-                                if (isOverdue)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.red[50],
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(color: Colors.red[200]!)
-                                    ),
-                                    child: Text('OVERDUE (30+)', style: GoogleFonts.poppins(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold)),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (isPaid)
-                        Positioned(
-                          right: -10,
-                          top: 15,
-                          child: Transform.rotate(
-                            angle: 0.5,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withOpacity(0.9),
-                                boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black26)]
-                              ),
-                              child: Text(
-                                'PAID',
-                                style: GoogleFonts.courierPrime(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 2),
-                              ),
+                            child: Icon(
+                              isPaid ? Icons.check_circle_outline : (isOverdue ? Icons.priority_high : Icons.receipt_outlined),
+                              color: isPaid ? Colors.green : (isOverdue ? Colors.red : Colors.orange),
+                              size: 24,
                             ),
                           ),
-                        ),
-                    ],
-                  ),
+                          const SizedBox(width: 15),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  invoice.clientName,
+                                  style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                                Text(
+                                  '${DateFormat.yMMMd().format(invoice.date)} • ${invoice.isExternal ? "External" : "Project-based"}',
+                                  style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                CurrencyService.format(invoice.amount, invoice.currency),
+                                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+                              if (isOverdue)
+                                Text('OVERDUE', style: GoogleFonts.poppins(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold))
+                              else if (isPaid)
+                                Text('PAID', style: GoogleFonts.poppins(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold))
+                              else
+                                Text('PENDING', style: GoogleFonts.poppins(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Magic Actions Footer
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.03),
+                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      child: Row(
+                        children: [
+                          if (!isPaid)
+                            TextButton.icon(
+                              onPressed: () {
+                                invoice.status = 'Paid';
+                                invoice.save();
+                              },
+                              icon: const Icon(Icons.done_all, size: 16, color: Colors.green),
+                              label: Text('Mark Paid', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green)),
+                            ),
+                          const Spacer(),
+                          IconButton(
+                            icon: const Icon(Icons.print_outlined, size: 18, color: Colors.grey),
+                            onPressed: () => _generateAndPrintPdf(context, invoice),
+                            tooltip: 'Print',
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.share_outlined, size: 18, color: Colors.grey),
+                            onPressed: () => _sharePdf(context, invoice),
+                            tooltip: 'Share',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               );
             },
           );
+
         },
       ),
       floatingActionButton: FloatingActionButton(

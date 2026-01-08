@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../services/proposal_pdf_generator.dart';
+import '../widgets/app_card.dart';
 
 class ProposalsScreen extends StatelessWidget {
   const ProposalsScreen({super.key});
@@ -17,13 +18,14 @@ class ProposalsScreen extends StatelessWidget {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
           title: Text('Proposals', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-          backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
-          foregroundColor: Theme.of(context).appBarTheme.foregroundColor ?? Colors.black,
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          foregroundColor: Theme.of(context).colorScheme.onSurface,
+          elevation: 0,
           bottom: TabBar(
             labelStyle: GoogleFonts.poppins(fontWeight: FontWeight.bold),
             unselectedLabelStyle: GoogleFonts.poppins(),
-            indicatorColor: const Color(0xFF2196F3),
-            labelColor: const Color(0xFF2196F3),
+            indicatorColor: Theme.of(context).colorScheme.primary,
+            labelColor: Theme.of(context).colorScheme.primary,
             unselectedLabelColor: Colors.grey,
             tabs: const [
               Tab(text: 'Pending'),
@@ -49,8 +51,27 @@ class ProposalsScreen extends StatelessWidget {
         ),
         floatingActionButton: FloatingActionButton(
           onPressed: () => _showAddEditDialog(context),
-          backgroundColor: const Color(0xFF2196F3),
           child: const Icon(Icons.add, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusBadge(BuildContext context, String status) {
+    final color = _getStatusColor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: GoogleFonts.poppins(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
         ),
       ),
     );
@@ -74,97 +95,99 @@ class ProposalsScreen extends StatelessWidget {
       itemCount: proposals.length,
       itemBuilder: (context, index) {
         final proposal = proposals[index];
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => _showAddEditDialog(context, proposal: proposal),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          proposal.projectTitle,
-                          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
+        return AppCard(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: EdgeInsets.zero,
+          onTap: () => _showAddEditDialog(context, proposal: proposal),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                proposal.projectTitle,
+                                style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                proposal.clientName,
+                                style: GoogleFonts.poppins(color: Colors.grey[600], fontSize: 13, fontWeight: FontWeight.w500),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(proposal.status).withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: _getStatusColor(proposal.status).withOpacity(0.5)),
-                        ),
-                        child: Text(
-                          proposal.status.toUpperCase(),
-                          style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: _getStatusColor(proposal.status)),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    proposal.clientName,
-                    style: GoogleFonts.poppins(color: Colors.grey[600], fontSize: 13),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today, size: 14, color: Colors.grey[400]),
-                      const SizedBox(width: 4),
-                      Text(DateFormat.yMMMd().format(proposal.dateSent), style: GoogleFonts.poppins(color: Colors.grey[500], fontSize: 12)),
-                      const Spacer(),
-                      Text(
-                        '\$${proposal.estimatedBudget.toStringAsFixed(0)}',
-                        style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  // Action Buttons Row
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      // PDF Button
-                       TextButton.icon(
-                         onPressed: () => ProposalPdfGenerator.generateAndShow(proposal),
-                         icon: const Icon(Icons.picture_as_pdf, size: 16),
-                         label: Text('View PDF', style: GoogleFonts.poppins(fontSize: 12)),
-                         style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
-                       ),
-                       const SizedBox(width: 8),
-                       
-                      // Convert Button
-                      if (proposal.status != 'Rejected') ...[
-                         OutlinedButton.icon(
-                           onPressed: () => _convertToProject(context, proposal),
-                           icon: const Icon(Icons.rocket_launch_outlined, size: 16),
-                           label: Text('Convert', style: GoogleFonts.poppins(fontSize: 12)),
-                           style: OutlinedButton.styleFrom(
-                             foregroundColor: const Color(0xFF2196F3),
-                             side: const BorderSide(color: Color(0xFF2196F3)),
-                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                           ),
-                         ),
+                        _statusBadge(context, proposal.status),
                       ],
-                    ],
-                  ),
-                ],
+                    ),
+                    const SizedBox(height: 15),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_month_outlined, size: 14, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(
+                          DateFormat.yMMMd().format(proposal.dateSent),
+                          style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                        ),
+                        const Spacer(),
+                        Text(
+                          '\$${proposal.estimatedBudget.toStringAsFixed(0)}',
+                          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
+              // Footer Magic Actions
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.03),
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                child: Row(
+                  children: [
+                    TextButton.icon(
+                      onPressed: () => ProposalPdfGenerator.generateAndShow(proposal),
+                      icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
+                      label: Text('View PDF', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600)),
+                      style: TextButton.styleFrom(foregroundColor: isDark ? Colors.white70 : Colors.black87),
+                    ),
+                    const Spacer(),
+                    if (proposal.status != 'Rejected')
+                      ElevatedButton.icon(
+                        onPressed: () => _convertToProject(context, proposal),
+                        icon: const Icon(Icons.rocket_launch_rounded, size: 14),
+                        label: Text('CONVERT', style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          foregroundColor: Theme.of(context).colorScheme.primary,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ),
         );
+      },
+    );
+  }
 
-    },
-  );
-}
 
   void _convertToProject(BuildContext context, Proposal proposal) {
       // 1. Create Project

@@ -3,6 +3,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import '../models/models.dart';
+import '../widgets/app_card.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ClientsScreen extends StatelessWidget {
   const ClientsScreen({super.key});
@@ -14,8 +16,8 @@ class ClientsScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('Clients', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
         elevation: 0,
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
-        foregroundColor: Theme.of(context).appBarTheme.foregroundColor ?? Colors.black,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
       ),
       body: ValueListenableBuilder(
         valueListenable: Hive.box<Client>('clients').listenable(),
@@ -38,7 +40,7 @@ class ClientsScreen extends StatelessWidget {
 
               final clients = clientBox.values.toList().cast<Client>();
               final invoices = invoiceBox.values.toList().cast<Invoice>();
-
+              
               return ListView.builder(
                 padding: const EdgeInsets.all(20),
                 itemCount: clients.length,
@@ -49,8 +51,6 @@ class ClientsScreen extends StatelessWidget {
                   final lifetimeValue = clientInvoices.fold(0.0, (sum, i) => sum + i.amount);
 
                   // Calculate Health Score
-                  // Criteria: Recency (last invoice < 30 days) + Value (LTV > $1000)
-                  // Simplified: Active if has paid invoice in last 60 days
                   final lastInvoiceDate = clientInvoices.isNotEmpty 
                       ? clientInvoices.map((i) => i.date).reduce((a, b) => a.isAfter(b) ? a : b)
                       : null;
@@ -69,116 +69,154 @@ class ClientsScreen extends StatelessWidget {
                      healthColor = Colors.orange;
                      healthText = 'Dormant';
                   }
-
-                  return Card(
-                    color: Theme.of(context).cardColor,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    child: InkWell(
-                      onTap: () => _showAddEditDialog(context, client: client),
-                      borderRadius: BorderRadius.circular(16),
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                CircleAvatar(
-                                  radius: 28,
-                                  backgroundColor: healthColor.withOpacity(0.1),
-                                  child: Text(
-                                    client.name.isNotEmpty ? client.name[0].toUpperCase() : '?',
-                                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: healthColor, fontSize: 24),
-                                  ),
+                  
+                  return AppCard(
+                    padding: EdgeInsets.zero,
+                    onTap: () => _showAddEditDialog(context, client: client),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: healthColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(client.name, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18)),
-                                      if (client.company.isNotEmpty)
-                                        Text(client.company, style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[600])),
-                                      const SizedBox(height: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: healthColor.withOpacity(0.1),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: healthColor.withOpacity(0.3)),
-                                        ),
-                                        child: Text(
-                                          healthText.toUpperCase(),
-                                          style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: healthColor),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  client.name.isNotEmpty ? client.name[0].toUpperCase() : '?',
+                                  style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: healthColor, fontSize: 24),
                                 ),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('LTV', style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[500], fontWeight: FontWeight.bold)),
-                                    Text(
-                                      '\$${lifetimeValue.toInt()}',
-                                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.black87),
-                                    ),
+                                    Text(client.name, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 18)),
+                                    if (client.company.isNotEmpty)
+                                      Text(client.company, style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[600], fontWeight: FontWeight.w500)),
+                                    const SizedBox(height: 8),
+                                    _healthBadge(healthText, healthColor),
                                   ],
                                 ),
-                              ],
-                            ),
-                            if (client.email.isNotEmpty || client.phone.isNotEmpty) ...[
-                               const SizedBox(height: 16),
-                               const Divider(),
-                               const SizedBox(height: 8),
-                               Row(
-                                 mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                 children: [
-                                   if (client.email.isNotEmpty)
-                                     _buildContactAction(Icons.email_outlined, 'Email'),
-                                   if (client.phone.isNotEmpty)
-                                     _buildContactAction(Icons.phone_outlined, 'Call'),
-                                   _buildContactAction(Icons.history, 'History'),
-                                 ],
-                               ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text('LTV', style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                                  Text(
+                                    '\$${lifetimeValue.toInt()}',
+                                    style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 20),
+                                  ),
+                                ],
+                              ),
                             ],
-                          ],
+                          ),
                         ),
-                      ),
+                        // Magic Actions Footer
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.03),
+                            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          child: Row(
+                            children: [
+                              TextButton.icon(
+                                onPressed: () => _launchEmail(context, client.email),
+                                icon: const Icon(Icons.email_outlined, size: 16),
+                                label: Text('Email', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600)),
+                                style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => _launchPhone(context, client.phone),
+                                icon: const Icon(Icons.phone_outlined, size: 16),
+                                label: Text('Call', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600)),
+                                style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+                              ),
+                              const Spacer(),
+                              TextButton(
+                                onPressed: () {},
+                                child: Text('View History', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 },
               );
-
             },
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddEditDialog(context),
-        backgroundColor: const Color(0xFF2196F3),
         child: const Icon(Icons.person_add, color: Colors.white),
       ),
     );
   }
 
-  Widget _buildContactAction(IconData icon, String label) {
-    return InkWell(
-      onTap: () {}, // Future: Launch URL
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: Colors.grey[600]),
-            const SizedBox(width: 6),
-            Text(label, style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[700])),
-          ],
-        ),
+  Widget _healthBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        text.toUpperCase(),
+        style: GoogleFonts.poppins(fontSize: 10, fontWeight: FontWeight.bold, color: color),
       ),
     );
+  }
+
+  Future<void> _launchEmail(BuildContext context, String email) async {
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No email provided for this client')),
+      );
+      return;
+    }
+    final Uri emailLaunchUri = Uri(
+      scheme: 'mailto',
+      path: email,
+    );
+    if (await canLaunchUrl(emailLaunchUri)) {
+      await launchUrl(emailLaunchUri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not launch email app')),
+      );
+    }
+  }
+
+  Future<void> _launchPhone(BuildContext context, String phone) async {
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No phone number provided for this client')),
+      );
+      return;
+    }
+    final Uri phoneLaunchUri = Uri(
+      scheme: 'tel',
+      path: phone,
+    );
+    if (await canLaunchUrl(phoneLaunchUri)) {
+      await launchUrl(phoneLaunchUri);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not launch phone app')),
+      );
+    }
   }
 
   void _showAddEditDialog(BuildContext context, {Client? client}) {

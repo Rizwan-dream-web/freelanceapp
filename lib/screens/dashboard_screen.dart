@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,9 +10,36 @@ import '../widgets/global_search_delegate.dart';
 import '../services/currency_service.dart';
 import 'settings_screen.dart';
 import 'reports_screen.dart';
+import '../widgets/app_card.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        final taskBox = Hive.box<TaskItem>('tasks');
+        if (taskBox.values.any((t) => t.isRunning)) {
+          setState(() {});
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,8 +47,8 @@ class DashboardScreen extends StatelessWidget {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text('Command Center', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
-        foregroundColor: Theme.of(context).appBarTheme.foregroundColor ?? Colors.black,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
         actions: [
           IconButton(
@@ -96,14 +124,55 @@ class DashboardScreen extends StatelessWidget {
                     return SingleChildScrollView(
                       padding: const EdgeInsets.all(20),
                       child: Column(
+
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // --- Welcome Message ---
+                          Text('Good evening, Rizwan', style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold)),
+                          Text('Ready to crush your goals today?', style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey)),
+                          const SizedBox(height: 25),
+
                           // --- Daily Focus Card ---
                           if (focusProject != null) ...[
-                             Text('DAILY FOCUS', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+                             Row(
+                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                               children: [
+                                 Text('DAILY FOCUS', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+                                 const Icon(Icons.star, color: Colors.amber, size: 16),
+                               ],
+                             ),
                              const SizedBox(height: 10),
                              _buildFocusCard(context, focusProject, tasks),
                              const SizedBox(height: 25),
+                          ],
+
+                          // --- Storytelling Insight (SMART) ---
+                          if (paidInvoices.isNotEmpty) ...[
+                            AppCard(
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                              padding: const EdgeInsets.all(16),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.auto_awesome, color: Color(0xFF6366F1), size: 24),
+                                  const SizedBox(width: 15),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text('Smart Insight', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF6366F1))),
+                                        Text(
+                                          totalPaidConverted > 0 
+                                            ? 'You earned more this month than last! Keep the momentum high. 🚀'
+                                            : 'No earnings yet this month. Time to follow up on your pending proposals!',
+                                          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 10),
                           ],
 
                           // --- Time Burn Indicator ---
@@ -112,13 +181,13 @@ class DashboardScreen extends StatelessWidget {
                              const SizedBox(height: 25),
                           ],
 
-                          Text('EARNINGS & FORECAST', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+                          Text('FINANCIAL SNAPSHOT', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
                           const SizedBox(height: 10),
                           Row(
                             children: [
-                              Expanded(child: _buildStatCard(context, 'Total Earnings', CurrencyService.format(totalPaidConverted, CurrencyService.globalCurrency), Icons.payments_outlined, Colors.blue)),
+                              Expanded(child: _buildStatCard(context, 'Total Paid', CurrencyService.format(totalPaidConverted, CurrencyService.globalCurrency), Icons.payments_outlined, Colors.indigo)),
                               const SizedBox(width: 15),
-                              Expanded(child: _buildStatCard(context, '7-Day Expected', CurrencyService.format(expectedConverted, CurrencyService.globalCurrency), Icons.savings_outlined, Colors.green)),
+                              Expanded(child: _buildStatCard(context, 'Next Week', CurrencyService.format(expectedConverted, CurrencyService.globalCurrency), Icons.event_available_outlined, Colors.teal)),
                             ],
                           ),
 
@@ -126,15 +195,16 @@ class DashboardScreen extends StatelessWidget {
                           
                           // --- Action Alerts (Button Style) ---
                           if (overdueInvoices > 0 || pendingProposals > 0) ...[
-                             Text('ACTIONS', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
+                             Text('QUICK ACTIONS', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.2)),
                              const SizedBox(height: 10),
                              if (overdueInvoices > 0)
-                               _buildActionChip(context, 'Follow up $overdueInvoices overdue invoices', Icons.mail_outline, Colors.red),
+                               _buildActionChip(context, 'Invoice Follow-up ($overdueInvoices)', Icons.mail_outline, Colors.orange),
                              if (pendingProposals > 0)
-                               _buildActionChip(context, 'Check $pendingProposals pending proposals', Icons.description_outlined, Colors.blue),
+                               _buildActionChip(context, 'New Proposal Response', Icons.description_outlined, Colors.blue),
                           ],
                         ],
                       ),
+
                     );
                  }
               );
@@ -218,18 +288,10 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildTimeBurnCard(BuildContext context, double tracked, int estimated, double burnRate) {
-    // Color logic: < 80% Green, 80-100% Orange, > 100% Red
-    Color burnColor = Colors.green;
-    if (burnRate > 1.0) burnColor = Colors.red;
-    else if (burnRate > 0.8) burnColor = Colors.orange;
+    Color burnColor = burnRate > 1.0 ? Colors.red : (burnRate > 0.8 ? Colors.orange : Theme.of(context).colorScheme.primary);
 
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
-      ),
       child: Row(
         children: [
           Stack(
@@ -239,12 +301,13 @@ class DashboardScreen extends StatelessWidget {
                 width: 60, height: 60,
                 child: CircularProgressIndicator(
                   value: burnRate > 1 ? 1 : burnRate,
-                  backgroundColor: Colors.grey[100],
+                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.05),
                   color: burnColor,
-                  strokeWidth: 6,
+                  strokeWidth: 8,
+                  strokeCap: StrokeCap.round,
                 ),
               ),
-              Icon(Icons.local_fire_department_outlined, color: burnColor, size: 24),
+              Icon(Icons.timer_outlined, color: burnColor, size: 24),
             ],
           ),
           const SizedBox(width: 20),
@@ -252,15 +315,25 @@ class DashboardScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Time Budget', style: GoogleFonts.poppins(color: Colors.grey, fontSize: 12)),
+                Text('TIME PROGRESS', style: GoogleFonts.poppins(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                 const SizedBox(height: 4),
                 Text(
                   '${tracked.toStringAsFixed(1)} / $estimated hrs', 
                   style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)
                 ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: burnRate > 1 ? 1 : burnRate,
+                    backgroundColor: burnColor.withOpacity(0.1),
+                    color: burnColor,
+                    minHeight: 4,
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Text(
-                  burnRate > 1.0 ? 'Over Budget!' : '${((1-burnRate)*100).toInt()}% remaining',
-                  style: GoogleFonts.poppins(color: burnColor, fontSize: 12, fontWeight: FontWeight.w500),
+                  burnRate > 1.0 ? 'Over Budget!' : '${((1-burnRate)*100).toInt()}% capacity left',
+                  style: GoogleFonts.poppins(color: burnColor, fontSize: 12, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
@@ -271,13 +344,9 @@ class DashboardScreen extends StatelessWidget {
   }
 
   Widget _buildStatCard(BuildContext context, String title, String value, IconData icon, Color color) {
-    return Container(
+    return AppCard(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.withOpacity(0.1)),
-      ),
+      margin: EdgeInsets.zero,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -287,8 +356,8 @@ class DashboardScreen extends StatelessWidget {
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(height: 12),
-          Text(value, style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)),
-          Text(title, style: GoogleFonts.poppins(color: Colors.grey, fontSize: 11)),
+          Text(value, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(title, style: GoogleFonts.poppins(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)),
         ],
       ),
     );

@@ -5,9 +5,11 @@ import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../services/currency_service.dart';
+import '../widgets/app_card.dart';
+import 'focus_screen.dart';
 
 class ProjectsScreen extends StatelessWidget {
-  ProjectsScreen({super.key});
+  const ProjectsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -16,8 +18,8 @@ class ProjectsScreen extends StatelessWidget {
       appBar: AppBar(
         title: Text('Workspace', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
         elevation: 0,
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
-        foregroundColor: Theme.of(context).appBarTheme.foregroundColor ?? Colors.black,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
       ),
       body: ValueListenableBuilder(
         valueListenable: Hive.box<Project>('projects').listenable(),
@@ -25,159 +27,165 @@ class ProjectsScreen extends StatelessWidget {
           return ValueListenableBuilder(
             valueListenable: Hive.box<TaskItem>('tasks').listenable(),
             builder: (context, Box<TaskItem> taskBox, _) {
-              if (projectBox.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.folder_open_outlined, size: 60, color: Colors.grey[300]),
-                      const SizedBox(height: 16),
-                      Text('No active projects', style: GoogleFonts.poppins(color: Colors.grey[500])),
-                    ],
-                  ),
-                );
-              }
-              final projects = projectBox.values.toList().cast<Project>();
-              projects.sort((a, b) => a.deadline.compareTo(b.deadline));
-              final tasks = taskBox.values.toList().cast<TaskItem>();
+              return ValueListenableBuilder(
+                valueListenable: Hive.box<Invoice>('invoices').listenable(),
+                builder: (context, Box<Invoice> invoiceBox, _) {
+                  if (projectBox.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.folder_open_outlined, size: 60, color: Colors.grey[300]),
+                          const SizedBox(height: 16),
+                          Text('No active projects', style: GoogleFonts.poppins(color: Colors.grey[500])),
+                        ],
+                      ),
+                    );
+                  }
+                  final projects = projectBox.values.toList().cast<Project>();
+                  projects.sort((a, b) => a.deadline.compareTo(b.deadline));
+                  final tasks = taskBox.values.toList().cast<TaskItem>();
+                  final invoices = invoiceBox.values.toList().cast<Invoice>();
 
-              return ListView.builder(
-                padding: const EdgeInsets.all(20),
-                itemCount: projects.length,
-                itemBuilder: (context, index) {
-                  final project = projects[index];
-                  
-                  final projectTasks = tasks.where((t) => t.projectId == project.id).toList();
-                  final totalTasks = projectTasks.length;
-                  final completedTasks = projectTasks.where((t) => t.isCompleted).length;
-                  final progress = totalTasks == 0 ? 0.0 : completedTasks / totalTasks;
-                  
-                  final isOverdue = project.deadline.isBefore(DateTime.now()) && project.status != 'Completed';
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: projects.length,
+                    itemBuilder: (context, index) {
+                      final project = projects[index];
+                      
+                      final projectTasks = tasks.where((t) => t.projectId == project.id).toList();
+                      final totalTasks = projectTasks.length;
+                      final completedTasks = projectTasks.where((t) => t.isCompleted).length;
+                      final progress = totalTasks == 0 ? 0.0 : completedTasks / totalTasks;
 
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Card(
-                        color: Theme.of(context).cardColor,
-                        margin: const EdgeInsets.only(bottom: 20),
-                        elevation: 4,
-                        shadowColor: Colors.black12,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          side: isOverdue ? const BorderSide(color: Colors.redAccent, width: 1.5) : BorderSide.none,
-                        ),
-                        child: InkWell(
-                          onTap: () => _showAddEditDialog(context, project: project),
-                          borderRadius: BorderRadius.circular(16),
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                      // Calculate Realized Earnings
+                      final projectInvoices = invoices.where((i) => i.projectId == project.id && i.status == 'Paid').toList();
+                      final realizedEarnings = projectInvoices.fold(0.0, (sum, i) => sum + i.amount);
+                      
+                      final isOverdue = project.deadline.isBefore(DateTime.now()) && project.status != 'Completed';
+
+                      return AppCard(
+                        padding: EdgeInsets.zero,
+                        onTap: () => _showAddEditDialog(context, project: project),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              project.name, 
+                                              style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold)
+                                            ),
+                                            Text(
+                                              project.clientName,
+                                              style: GoogleFonts.poppins(color: Colors.grey[600], fontSize: 13, fontWeight: FontWeight.w500),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      _statusBadge(context, project.status),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 15),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(4),
+                                          child: LinearProgressIndicator(
+                                            value: progress,
+                                            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                                            color: _getStatusColor(project.status),
+                                            minHeight: 6,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Text(
+                                        '${(progress * 100).toInt()}%',
+                                        style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 12, color: _getStatusColor(project.status)),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 15),
+                                  Row(
+                                    children: [
+                                      Icon(Icons.calendar_month_outlined, size: 14, color: isOverdue ? Colors.red : Colors.grey),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        DateFormat.yMMMd().format(project.deadline),
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 12,
+                                          color: isOverdue ? Colors.red : Colors.grey, 
+                                          fontWeight: isOverdue ? FontWeight.bold : FontWeight.normal
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.end,
                                         children: [
                                           Text(
-                                            project.name, 
-                                            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold)
+                                            '${CurrencyService.format(realizedEarnings, project.currency)} / ${CurrencyService.format(project.budget, project.currency)}',
+                                            style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15),
                                           ),
-                                          const SizedBox(height: 4),
                                           Text(
-                                            project.clientName,
-                                            style: GoogleFonts.poppins(color: Colors.grey[600], fontSize: 13),
+                                            'EARNED',
+                                            style: GoogleFonts.poppins(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                                           ),
                                         ],
                                       ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                      decoration: BoxDecoration(
-                                        color: _getStatusColor(project.status).withOpacity(0.1),
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      child: Text(
-                                        project.status,
-                                        style: GoogleFonts.poppins(
-                                          color: _getStatusColor(project.status),
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 11
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 20),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(10),
-                                        child: LinearProgressIndicator(
-                                          value: progress,
-                                          backgroundColor: Colors.grey[200],
-                                          color: _getStatusColor(project.status),
-                                          minHeight: 8,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      '${(progress * 100).toInt()}%',
-                                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 12),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 20),
-                                const Divider(),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    Icon(Icons.calendar_month, size: 16, color: isOverdue ? Colors.red : Colors.grey[400]),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      DateFormat.yMMMd().format(project.deadline),
-                                      style: GoogleFonts.poppins(
-                                        color: isOverdue ? Colors.red : Colors.grey[600], 
-                                        fontWeight: isOverdue ? FontWeight.bold : FontWeight.normal
-                                      ),
-                                    ),
-                                    const Spacer(),
-                                    Text(
-                                      CurrencyService.format(project.budget, project.currency),
-                                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 16),
-                                    ),
-                                  ],
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                      // Action Button attached to Card
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 20, top: 0, left: 10, right: 10),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                             ElevatedButton.icon(
-                               onPressed: () => _generateInvoice(context, project),
-                               icon: const Icon(Icons.receipt_long, size: 16),
-                               label: Text('Invoice', style: GoogleFonts.poppins(fontSize: 12)),
-                               style: ElevatedButton.styleFrom(
-                                 backgroundColor: Colors.white,
-                                 foregroundColor: Colors.black87,
-                                 elevation: 2,
-                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                               ),
-                             ),
+                            // --- Magic Actions Row (Footer) ---
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary.withOpacity(0.03),
+                                borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
+                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              child: Row(
+                                children: [
+                                  TextButton.icon(
+                                    onPressed: () {
+                                      // Find the first non-completed task or create one
+                                      final taskToStart = projectTasks.where((t) => !t.isCompleted).firstOrNull;
+                                      if (taskToStart != null) {
+                                        Navigator.push(context, MaterialPageRoute(builder: (_) => FocusScreen(task: taskToStart)));
+                                      } else {
+                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No active tasks found for this project.')));
+                                      }
+                                    },
+                                    icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                                    label: Text('Start Working', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
+                                    style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary),
+                                  ),
+                                  const Spacer(),
+                                  TextButton.icon(
+                                    onPressed: () => _generateInvoice(context, project),
+                                    icon: const Icon(Icons.receipt_long_outlined, size: 16),
+                                    label: Text('Invoice', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
+                                    style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                      ),
-                    ],
+                      );
+                    },
                   );
                 },
               );
@@ -193,17 +201,34 @@ class ProjectsScreen extends StatelessWidget {
     );
   }
 
+  Widget _statusBadge(BuildContext context, String status) {
+    final color = _getStatusColor(status);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        status.toUpperCase(),
+        style: GoogleFonts.poppins(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
   void _generateInvoice(BuildContext context, Project project) {
     final invoiceBox = Hive.box<Invoice>('invoices');
     final newInvoiceId = const Uuid().v4();
     
-    // Check if invoice already exists for this project to avoid dupes? 
-    // Nah, let's allow multiple invoices (e.g. milestones).
-    
     final newInvoice = Invoice(
       id: newInvoiceId,
       clientName: project.clientName,
-      amount: project.budget, // Default to full budget
+      amount: project.budget, 
       date: DateTime.now(),
       status: 'Pending',
       projectId: project.id,
@@ -266,9 +291,8 @@ class _ProjectFormState extends State<ProjectForm> {
   DateTime _deadline = DateTime.now().add(const Duration(days: 7));
   String _status = 'Not Started';
   
-  // New State Variables
   String? _selectedClientId;
-  String _selectedCurrency = 'USD'; // Default
+  String _selectedCurrency = 'USD';
   List<Client> _clients = [];
 
   @override
@@ -298,11 +322,10 @@ class _ProjectFormState extends State<ProjectForm> {
       _selectedClientId = widget.project?.clientId;
       _selectedCurrency = widget.project?.currency ?? 'USD';
 
-      // Fallback: If clientId is null but clientName exists (Legacy project), try to match by name
       if (_selectedClientId == null && widget.project!.clientName.isNotEmpty) {
         final match = _clients.firstWhere(
           (c) => c.name.toLowerCase() == widget.project!.clientName.toLowerCase(),
-          orElse: () => Client(id: '', name: '', company: '', email: '', phone: '', notes: ''), // Dummy
+          orElse: () => Client(id: '', name: '', company: '', email: '', phone: '', notes: ''),
         );
         if (match.id.isNotEmpty) {
           _selectedClientId = match.id;
@@ -335,7 +358,7 @@ class _ProjectFormState extends State<ProjectForm> {
       final newProject = Project(
         id: id,
         name: _nameController.text,
-        clientName: client.name, // Keep clientName for display speed
+        clientName: client.name,
         clientId: client.id,
         budget: double.tryParse(_budgetController.text) ?? 0.0,
         deadline: _deadline,
@@ -384,7 +407,6 @@ class _ProjectFormState extends State<ProjectForm> {
                Text(widget.project == null ? 'New Project' : 'Edit Project', style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold)),
                const SizedBox(height: 20),
                
-               // Client Selection Logic
                if (!hasClients)
                  Container(
                    padding: const EdgeInsets.all(12),
@@ -400,8 +422,7 @@ class _ProjectFormState extends State<ProjectForm> {
                        Text('You must create a client before adding a project.', style: GoogleFonts.poppins(fontSize: 12), textAlign: TextAlign.center),
                        TextButton(
                          onPressed: () {
-                           Navigator.pop(context); // Close project dialog
-                           // Ideally navigate to Client tab, but for now just close.
+                           Navigator.pop(context);
                          },
                          child: const Text('Go back to create Client'),
                        )
@@ -429,7 +450,6 @@ class _ProjectFormState extends State<ProjectForm> {
                ),
                const SizedBox(height: 12),
                
-               // Budget & Currency
                Row(
                  children: [
                    Expanded(

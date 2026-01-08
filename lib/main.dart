@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -10,10 +11,11 @@ import 'screens/invoices_screen.dart';
 import 'screens/clients_screen.dart';
 import 'screens/focus_screen.dart'; 
 import 'models/models.dart';
+import 'services/hive_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Hive init is now handled in SplashScreen
+  await HiveService.init();
   runApp(const FreelancerApp());
 }
 
@@ -22,49 +24,83 @@ class FreelancerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Note: Theme listener starts weak here, but updates once Settings box opens in Splash
-    // We wrap in a builder that handles the async nature safely or defaults to light
-    return MaterialApp(
-      title: 'Freelancer App',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-        fontFamily: GoogleFonts.poppins().fontFamily,
-        brightness: Brightness.light,
-        scaffoldBackgroundColor: const Color(0xFFF5F7FA),
-        cardColor: Colors.white,
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: {
-            TargetPlatform.android: ZoomPageTransitionsBuilder(),
-            TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-            TargetPlatform.windows: ZoomPageTransitionsBuilder(),
-          },
-        ),
-      ),
-      darkTheme: ThemeData(
-        primarySwatch: Colors.blue,
-        useMaterial3: true,
-        fontFamily: GoogleFonts.poppins().fontFamily,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF121212),
-        cardColor: const Color(0xFF1E1E1E),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1E1E1E),
-          foregroundColor: Colors.white,
-        ),
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: {
-             TargetPlatform.android: ZoomPageTransitionsBuilder(),
-             TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-             TargetPlatform.windows: ZoomPageTransitionsBuilder(),
-          },
-        ),
-      ),
-      themeMode: ThemeMode.system, // Will be overridden by ValueListenable in MainContainer if needed, 
-                                   // or we can update this widget to listen to Hive *after* Init.
-                                   // For Splash, we default to System or Light.
-      home: const SplashScreen(),
+    const Color primaryColor = Color(0xFF6366F1); // Indigo
+    const Color accentColor = Color(0xFF10B981); // Emerald
+
+    return ValueListenableBuilder(
+      valueListenable: Hive.box('settings').listenable(),
+      builder: (context, box, _) {
+        final isDarkMode = box.get('isDarkMode', defaultValue: false);
+        return MaterialApp(
+          title: 'Freelancer App',
+          debugShowCheckedModeBanner: false,
+          themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: primaryColor,
+              primary: primaryColor,
+              secondary: accentColor,
+              surface: Colors.white,
+              background: const Color(0xFFF8FAFC),
+            ),
+            fontFamily: GoogleFonts.poppins().fontFamily,
+            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+            cardTheme: const CardThemeData(
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(20))),
+              color: Colors.white,
+            ),
+            navigationBarTheme: NavigationBarThemeData(
+              backgroundColor: Colors.white,
+              indicatorColor: primaryColor.withOpacity(0.1),
+              labelTextStyle: WidgetStateProperty.all(
+                GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500),
+              ),
+            ),
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                TargetPlatform.android: ZoomPageTransitionsBuilder(),
+                TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+              },
+            ),
+          ),
+          darkTheme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: primaryColor,
+              brightness: Brightness.dark,
+              primary: primaryColor,
+              secondary: accentColor,
+              surface: const Color(0xFF1E293B),
+              background: const Color(0xFF0F172A),
+            ),
+            fontFamily: GoogleFonts.poppins().fontFamily,
+            scaffoldBackgroundColor: const Color(0xFF0F172A),
+            cardTheme: const CardThemeData(
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(20))),
+              color: Color(0xFF1E293B),
+            ),
+            navigationBarTheme: NavigationBarThemeData(
+              backgroundColor: const Color(0xFF1E293B),
+              indicatorColor: primaryColor.withOpacity(0.2),
+              labelTextStyle: WidgetStateProperty.all(
+                GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+              ),
+            ),
+            pageTransitionsTheme: const PageTransitionsTheme(
+              builders: {
+                 TargetPlatform.android: ZoomPageTransitionsBuilder(),
+                 TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+                 TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+              },
+            ),
+          ),
+          home: const SplashScreen(),
+        );
+      },
     );
   }
 }
@@ -79,19 +115,40 @@ class MainContainer extends StatefulWidget {
 class _MainContainerState extends State<MainContainer> {
   int _currentIndex = 0;
 
+  Timer? _fabTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _fabTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (mounted) {
+        final box = Hive.box<TaskItem>('tasks');
+        if (box.values.any((t) => t.isRunning)) {
+          setState(() {});
+        }
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _fabTimer?.cancel();
+    super.dispose();
+  }
+
   final List<Widget> _screens = [
-    DashboardScreen(),
-    ProposalsScreen(),
-    ProjectsScreen(),
-    TasksScreen(),
-    InvoicesScreen(),
-    ClientsScreen(), 
+    const DashboardScreen(),
+    const ProposalsScreen(),
+    const ProjectsScreen(),
+    const TasksScreen(),
+    const InvoicesScreen(),
+    const ClientsScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Scaffold(
       body: _screens[_currentIndex],
       bottomNavigationBar: NavigationBar(

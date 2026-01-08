@@ -7,6 +7,7 @@ import '../models/models.dart';
 import 'package:uuid/uuid.dart';
 import '../services/currency_service.dart';
 import 'focus_screen.dart';
+import '../widgets/app_card.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
@@ -39,8 +40,8 @@ class _TasksScreenState extends State<TasksScreen> {
       appBar: AppBar(
         title: Text('Tasks & Time', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
         elevation: 0,
-        backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Colors.white,
-        foregroundColor: Theme.of(context).appBarTheme.foregroundColor ?? Colors.black,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
       ),
       body: ValueListenableBuilder(
         valueListenable: Hive.box<TaskItem>('tasks').listenable(),
@@ -84,31 +85,32 @@ class _TasksScreenState extends State<TasksScreen> {
 
               return Column(
                 children: [
-                  // --- Productivity Header ---
-                  Container(
-                    width: double.infinity,
+                  // --- Productivity Header (Premium Refinement) ---
+                  AppCard(
                     margin: const EdgeInsets.all(20),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(colors: [Color(0xFF43A047), Color(0xFF66BB6A)]),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
-                    ),
+                    padding: const EdgeInsets.all(24),
+                    color: Theme.of(context).colorScheme.primary,
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('TOTAL TRACKED', style: GoogleFonts.poppins(color: Colors.white70, fontSize: 12, letterSpacing: 1)),
-                            const SizedBox(height: 5),
-                            Text('${hours}h ${minutes}m', style: GoogleFonts.poppins(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+                            Text(
+                              'TOTAL TRACKED TODAY', 
+                              style: GoogleFonts.poppins(color: Colors.white.withOpacity(0.7), fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.bold)
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${hours}h ${minutes}m', 
+                              style: GoogleFonts.poppins(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)
+                            ),
                           ],
                         ),
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
-                          child: const Icon(Icons.bar_chart, color: Colors.white, size: 30),
+                          child: Icon(Icons.timer_outlined, color: Colors.white.withOpacity(0.9), size: 28),
                         )
                       ],
                     ),
@@ -135,104 +137,106 @@ class _TasksScreenState extends State<TasksScreen> {
                         final formattedTime = _formatDuration(currentSeconds);
                         
                         final isDark = Theme.of(context).brightness == Brightness.dark;
-                        final cardColor = task.isCompleted 
-                            ? (isDark ? Colors.grey[900] : Colors.grey[50]) 
-                            : Theme.of(context).cardColor;
 
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          elevation: task.isRunning ? 6 : 2,
-                          shadowColor: task.isRunning ? Colors.blue.withOpacity(0.3) : Colors.black12,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: task.isRunning ? const BorderSide(color: Colors.blue, width: 1.5) : BorderSide.none
-                          ),
-                          color: cardColor,
-                          child: Padding(
-                            padding: const EdgeInsets.all(4.0),
-                            child: ListTile(
-                              leading: Checkbox(
-                                value: task.isCompleted,
-                                activeColor: Colors.grey,
-                                onChanged: (val) {
-                                  task.isCompleted = val ?? false;
-                                  if (task.isCompleted && task.isRunning) {
-                                    _toggleTimer(task, taskBox);
-                                  }
-                                  taskBox.put(task.id, task);
-                                },
-                              ),
-                              title: Text(
-                                project.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: isDark ? Colors.white : Colors.black87,
-                                ),
-                              ),
-                              subtitle: Text(
-                                task.title,
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  decoration: task.isCompleted ? TextDecoration.lineThrough : null,
-                                  color: task.isCompleted ? Colors.grey : Colors.grey[600],
-                                ),
-                              ),
-                              trailing: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  if (!task.isCompleted) ...[
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: task.isRunning ? Colors.blue[50] : (isDark ? Colors.grey[800] : Colors.grey[100]),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        formattedTime,
-                                        style: GoogleFonts.monoton( 
-                                          fontSize: 13, 
-                                          fontWeight: FontWeight.bold,
-                                          color: task.isRunning ? Colors.blue : Colors.grey[700],
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      icon: Icon(
-                                        task.isRunning ? Icons.pause_circle_filled : Icons.play_circle_fill,
-                                        color: task.isRunning ? Colors.orange : Colors.green,
-                                        size: 32,
-                                      ),
-                                      onPressed: () => _toggleTimer(task, taskBox),
-                                    ),
-                                  ] else ...[
-                                     Text(formattedTime, style: const TextStyle(color: Colors.grey)),
-                                  ],
-                                  PopupMenuButton(
-                                    icon: const Icon(Icons.more_vert, color: Colors.grey),
-                                    onSelected: (val) {
-                                      if (val == 'delete') {
-                                        taskBox.delete(task.id);
-                                      } else if (val == 'focus') {
-                                        if (!task.isRunning) {
-                                          task.isRunning = true;
-                                          task.lastStartTime = DateTime.now().millisecondsSinceEpoch;
-                                          task.save();
+                        return AppCard(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: EdgeInsets.zero,
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    Checkbox(
+                                      value: task.isCompleted,
+                                      activeColor: Colors.grey,
+                                      onChanged: (val) {
+                                        task.isCompleted = val ?? false;
+                                        if (task.isCompleted && task.isRunning) {
+                                          _toggleTimer(task, taskBox);
                                         }
-                                        Navigator.push(context, MaterialPageRoute(builder: (_) => FocusScreen(task: task)));
-                                      }
-                                    },
-                                    itemBuilder: (context) => [
-                                      const PopupMenuItem(value: 'focus', child: Text('Focus Mode')),
-                                      const PopupMenuItem(value: 'delete', child: Text('Delete')),
-                                    ],
-                                  ),
-                                ],
+                                        taskBox.put(task.id, task);
+                                      },
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            task.title,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w600,
+                                              decoration: task.isCompleted ? TextDecoration.lineThrough : null,
+                                              color: task.isCompleted ? Colors.grey : (isDark ? Colors.white : Colors.black87),
+                                            ),
+                                          ),
+                                          Text(
+                                            project.name,
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 11,
+                                              color: Colors.grey,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    // Timer Controls
+                                    if (!task.isCompleted)
+                                      Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            formattedTime,
+                                            style: GoogleFonts.jetBrainsMono(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: task.isRunning ? Theme.of(context).colorScheme.primary : Colors.grey,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          IconButton(
+                                            onPressed: () => _toggleTimer(task, taskBox),
+                                            icon: Icon(
+                                              task.isRunning ? Icons.pause_circle_filled_rounded : Icons.play_circle_fill_rounded,
+                                              color: task.isRunning ? Colors.orange : Theme.of(context).colorScheme.primary,
+                                              size: 34,
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(),
+                                          ),
+                                        ],
+                                      )
+                                    else
+                                      Text(formattedTime, style: GoogleFonts.jetBrainsMono(color: Colors.grey, fontSize: 13, decoration: TextDecoration.lineThrough)),
+                                  ],
+                                ),
                               ),
-                            ),
+                              // Footer Magic Actions
+                              Container(
+                                color: Theme.of(context).colorScheme.primary.withOpacity(0.03),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    if (!task.isCompleted)
+                                      TextButton.icon(
+                                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FocusScreen(task: task))),
+                                        icon: const Icon(Icons.center_focus_strong_outlined, size: 16),
+                                        label: Text('Focus', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600)),
+                                      ),
+                                    const Spacer(),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, size: 18, color: Colors.grey),
+                                      onPressed: () => taskBox.delete(task.id),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       },
@@ -240,6 +244,7 @@ class _TasksScreenState extends State<TasksScreen> {
                   ),
                 ],
               );
+
             },
           );
         },
