@@ -5,7 +5,11 @@ import 'package:uuid/uuid.dart';
 import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../services/proposal_pdf_generator.dart';
+import '../services/haptic_service.dart';
 import '../widgets/app_card.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 
 class ProposalsScreen extends StatelessWidget {
   const ProposalsScreen({super.key});
@@ -161,7 +165,13 @@ class ProposalsScreen extends StatelessWidget {
                     TextButton.icon(
                       onPressed: () => ProposalPdfGenerator.generateAndShow(proposal),
                       icon: const Icon(Icons.picture_as_pdf_outlined, size: 16),
-                      label: Text('View PDF', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600)),
+                      label: Text('View', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600)),
+                      style: TextButton.styleFrom(foregroundColor: isDark ? Colors.white70 : Colors.black87),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => _shareProposal(proposal),
+                      icon: const Icon(Icons.share_outlined, size: 16),
+                      label: Text('Share', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600)),
                       style: TextButton.styleFrom(foregroundColor: isDark ? Colors.white70 : Colors.black87),
                     ),
                     const Spacer(),
@@ -206,6 +216,7 @@ class ProposalsScreen extends StatelessWidget {
 
       // 2. Update Proposal Status
       if (proposal.status != 'Accepted') {
+        HapticService.success();
         proposal.status = 'Accepted';
         proposal.save();
       }
@@ -226,6 +237,25 @@ class ProposalsScreen extends StatelessWidget {
           ),
         ),
       );
+  }
+
+  Future<void> _shareProposal(Proposal proposal) async {
+    HapticService.light();
+    try {
+      final bytes = await ProposalPdfGenerator.generatePdf(proposal);
+      final directory = await getTemporaryDirectory();
+      final path = '${directory.path}/proposal_${proposal.id.substring(0, 8)}.pdf';
+      final file = File(path);
+      await file.writeAsBytes(bytes);
+
+      await Share.shareXFiles(
+        [XFile(path)],
+        text: 'Proposal: ${proposal.projectTitle} for ${proposal.clientName}',
+        subject: 'Business Proposal: ${proposal.projectTitle}',
+      );
+    } catch (e) {
+      // Intentionally silent or handled via snackbar
+    }
   }
 
   Color _getStatusColor(String status) {
@@ -272,6 +302,7 @@ class _ProposalFormState extends State<ProposalForm> {
   late TextEditingController _timelineController;
   late TextEditingController _budgetController;
   String _status = 'Pending';
+  String _style = 'Corporate';
   
   @override
   void initState() {
@@ -282,6 +313,7 @@ class _ProposalFormState extends State<ProposalForm> {
     _timelineController = TextEditingController(text: widget.proposal?.timeline ?? '');
     _budgetController = TextEditingController(text: widget.proposal?.estimatedBudget.toString() ?? '');
     _status = widget.proposal?.status ?? 'Pending';
+    _style = widget.proposal?.style ?? 'Corporate';
   }
 
   @override
@@ -352,6 +384,7 @@ class _ProposalFormState extends State<ProposalForm> {
 
   void _save() {
     if (_formKey.currentState!.validate()) {
+      HapticService.success();
       final box = Hive.box<Proposal>('proposals');
       final id = widget.proposal?.id ?? const Uuid().v4();
       final newProposal = Proposal(
@@ -363,6 +396,7 @@ class _ProposalFormState extends State<ProposalForm> {
         estimatedBudget: double.tryParse(_budgetController.text) ?? 0.0,
         dateSent: widget.proposal?.dateSent ?? DateTime.now(),
         status: _status,
+        style: _style,
       );
 
       box.put(id, newProposal);
@@ -373,6 +407,7 @@ class _ProposalFormState extends State<ProposalForm> {
 
   void _delete() {
     if (widget.proposal != null) {
+       HapticService.medium();
        final box = Hive.box<Proposal>('proposals');
        box.delete(widget.proposal!.id);
        Navigator.pop(context);
@@ -421,11 +456,26 @@ class _ProposalFormState extends State<ProposalForm> {
                  decoration: const InputDecoration(labelText: 'Estimated Budget (\$)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.attach_money)),
                ),
                const SizedBox(height: 12),
-               DropdownButtonFormField<String>(
-                 value: _status,
-                 decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder(), prefixIcon: Icon(Icons.flag)),
-                 items: ['Pending', 'Accepted', 'Rejected'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                 onChanged: (v) => setState(() => _status = v!),
+               Row(
+                 children: [
+                   Expanded(
+                     child: DropdownButtonFormField<String>(
+                       value: _status,
+                       decoration: const InputDecoration(labelText: 'Status', border: OutlineInputBorder(), prefixIcon: Icon(Icons.flag)),
+                       items: ['Pending', 'Accepted', 'Rejected'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                       onChanged: (v) => setState(() => _status = v!),
+                     ),
+                   ),
+                   const SizedBox(width: 12),
+                   Expanded(
+                     child: DropdownButtonFormField<String>(
+                       value: _style,
+                       decoration: const InputDecoration(labelText: 'PDF Style', border: OutlineInputBorder(), prefixIcon: Icon(Icons.style)),
+                       items: ['Creative', 'Corporate', 'Minimal'].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                       onChanged: (v) => setState(() => _style = v!),
+                     ),
+                   ),
+                 ],
                ),
                const SizedBox(height: 12),
                TextFormField(

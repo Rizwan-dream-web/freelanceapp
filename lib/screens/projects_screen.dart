@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../services/currency_service.dart';
 import '../widgets/app_card.dart';
+import '../services/haptic_service.dart';
 import 'focus_screen.dart';
 
 class ProjectsScreen extends StatelessWidget {
@@ -66,6 +67,7 @@ class ProjectsScreen extends StatelessWidget {
 
                       return AppCard(
                         padding: EdgeInsets.zero,
+                        margin: const EdgeInsets.only(bottom: 20),
                         onTap: () => _showAddEditDialog(context, project: project),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -112,8 +114,8 @@ class ProjectsScreen extends StatelessWidget {
                                       ),
                                       const SizedBox(width: 12),
                                       Text(
-                                        '${(progress * 100).toInt()}%',
-                                        style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 12, color: _getStatusColor(project.status)),
+                                        '${(progress * 100).toInt()}% Done',
+                                        style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 11, color: _getStatusColor(project.status)),
                                       ),
                                     ],
                                   ),
@@ -131,19 +133,7 @@ class ProjectsScreen extends StatelessWidget {
                                         ),
                                       ),
                                       const Spacer(),
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            '${CurrencyService.format(realizedEarnings, project.currency)} / ${CurrencyService.format(project.budget, project.currency)}',
-                                            style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 15),
-                                          ),
-                                          Text(
-                                            'EARNED',
-                                            style: GoogleFonts.poppins(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                                          ),
-                                        ],
-                                      ),
+                                      _buildProjectHealth(context, progress, realizedEarnings, project.budget),
                                     ],
                                   ),
                                 ],
@@ -155,12 +145,11 @@ class ProjectsScreen extends StatelessWidget {
                                 color: Theme.of(context).colorScheme.primary.withOpacity(0.03),
                                 borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
                               ),
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                               child: Row(
                                 children: [
                                   TextButton.icon(
                                     onPressed: () {
-                                      // Find the first non-completed task or create one
                                       final taskToStart = projectTasks.where((t) => !t.isCompleted).firstOrNull;
                                       if (taskToStart != null) {
                                         Navigator.push(context, MaterialPageRoute(builder: (_) => FocusScreen(task: taskToStart)));
@@ -169,16 +158,17 @@ class ProjectsScreen extends StatelessWidget {
                                       }
                                     },
                                     icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                                    label: Text('Start Working', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
+                                    label: Text('START WORK', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                                     style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary),
                                   ),
                                   const Spacer(),
-                                  TextButton.icon(
-                                    onPressed: () => _generateInvoice(context, project),
-                                    icon: const Icon(Icons.receipt_long_outlined, size: 16),
-                                    label: Text('Invoice', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600)),
-                                    style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
-                                  ),
+                                  if (realizedEarnings < project.budget)
+                                    TextButton.icon(
+                                      onPressed: () => _generateInvoice(context, project),
+                                      icon: const Icon(Icons.receipt_long_outlined, size: 16),
+                                      label: Text('INVOICE', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                                      style: TextButton.styleFrom(foregroundColor: Colors.grey[700]),
+                                    ),
                                 ],
                               ),
                             ),
@@ -218,6 +208,47 @@ class ProjectsScreen extends StatelessWidget {
           letterSpacing: 0.5,
         ),
       ),
+    );
+  }
+
+  Widget _buildProjectHealth(BuildContext context, double workProgress, double earned, double totalBudget) {
+    final budgetProgress = totalBudget == 0 ? 0.0 : earned / totalBudget;
+    
+    // Health is good if budget realization is ahead of or equal to work progress
+    // If workProgress is high but budgetProgress is low, health is "At Risk" (Uninvoiced work)
+    final healthRatio = workProgress == 0 ? 1.0 : (budgetProgress / workProgress);
+    
+    Color healthColor = Colors.green;
+    String healthLabel = "HEALTHY";
+    
+    if (healthRatio < 0.5) {
+      healthColor = Colors.red;
+      healthLabel = "AT RISK";
+    } else if (healthRatio < 0.9) {
+      healthColor = Colors.orange;
+      healthLabel = "BEHIND";
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Row(
+           mainAxisSize: MainAxisSize.min,
+           children: [
+             Container(
+               width: 8, height: 8,
+               decoration: BoxDecoration(color: healthColor, shape: BoxShape.circle),
+             ),
+             const SizedBox(width: 6),
+             Text(healthLabel, style: GoogleFonts.poppins(fontSize: 9, fontWeight: FontWeight.bold, color: healthColor, letterSpacing: 1)),
+           ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          '${(budgetProgress * 100).toInt()}% Revenue',
+          style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
+      ],
     );
   }
 
@@ -266,7 +297,7 @@ class ProjectsScreen extends StatelessWidget {
           color: Theme.of(context).cardColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         ),
-         padding: EdgeInsets.only(
+        padding: EdgeInsets.only(
          bottom: MediaQuery.of(context).viewInsets.bottom,
        ),
        child: ProjectForm(project: project),
@@ -366,6 +397,7 @@ class _ProjectFormState extends State<ProjectForm> {
         currency: _selectedCurrency,
       );
 
+      HapticService.success();
       box.put(id, newProject);
       Navigator.pop(context);
     }
@@ -373,6 +405,7 @@ class _ProjectFormState extends State<ProjectForm> {
 
   void _delete() {
     if (widget.project != null) {
+       HapticService.medium();
        final box = Hive.box<Project>('projects');
        box.delete(widget.project!.id);
        Navigator.pop(context);

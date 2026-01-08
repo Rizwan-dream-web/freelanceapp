@@ -2,7 +2,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:intl/intl.dart';
 import '../models/models.dart';
+import '../services/haptic_service.dart';
 
 class FocusScreen extends StatefulWidget {
   final TaskItem task;
@@ -17,6 +19,11 @@ class _FocusScreenState extends State<FocusScreen> with TickerProviderStateMixin
   late Timer _timer;
   late Duration _currentDuration;
   bool _isPaused = false;
+  
+  // Auto-pause fields
+  Timer? _inactivityTimer;
+  static const Duration _inactivityLimit = Duration(minutes: 5); 
+  DateTime _lastInteraction = DateTime.now();
 
   @override
   void initState() {
@@ -26,9 +33,28 @@ class _FocusScreenState extends State<FocusScreen> with TickerProviderStateMixin
       if (widget.task.isRunning && !_isPaused) {
         setState(() {
           _updateDuration();
+          _checkInactivity();
         });
       }
     });
+    _resetInactivity();
+  }
+
+  void _checkInactivity() {
+    if (!_isPaused && DateTime.now().difference(_lastInteraction) > _inactivityLimit) {
+      _togglePause();
+      HapticService.medium();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Auto-paused due to inactivity'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
+  void _resetInactivity() {
+    _lastInteraction = DateTime.now();
   }
 
   void _updateDuration() {
@@ -46,11 +72,9 @@ class _FocusScreenState extends State<FocusScreen> with TickerProviderStateMixin
   }
 
   void _togglePause() {
+    HapticService.light();
     setState(() {
       _isPaused = !_isPaused;
-      // In a real app, we'd update the DB state here to stop "accumulating" time while paused, 
-      // but for this MVP, visual pause is enough or we rely on the main Stop logic.
-      // Actually, to be accurate, if we pause, we should stop the DB timer.
       if (_isPaused) {
         _stopDbTimer();
       } else {
@@ -63,7 +87,14 @@ class _FocusScreenState extends State<FocusScreen> with TickerProviderStateMixin
     if (widget.task.isRunning) {
        final now = DateTime.now();
        final start = DateTime.fromMillisecondsSinceEpoch(widget.task.lastStartTime!);
-       widget.task.totalSeconds += now.difference(start).inSeconds;
+       final elapsed = now.difference(start).inSeconds;
+       
+       widget.task.totalSeconds += elapsed;
+       
+       // Daily tracking
+       final todayKey = DateFormat('yyyy-MM-dd').format(now);
+       widget.task.dailyTracked[todayKey] = (widget.task.dailyTracked[todayKey] ?? 0) + elapsed;
+       
        widget.task.isRunning = false;
        widget.task.lastStartTime = null;
        widget.task.save();
@@ -79,6 +110,7 @@ class _FocusScreenState extends State<FocusScreen> with TickerProviderStateMixin
   }
 
   void _finishTask() {
+    HapticService.success();
     _stopDbTimer();
     widget.task.isCompleted = true;
     widget.task.save();
@@ -88,10 +120,12 @@ class _FocusScreenState extends State<FocusScreen> with TickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     // Zen Mode UI
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        children: [
+    return Listener(
+      onPointerDown: (_) => _resetInactivity(),
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          children: [
           // Background Gradient (Subtle)
           Positioned.fill(
             child: Container(
@@ -197,6 +231,7 @@ class _FocusScreenState extends State<FocusScreen> with TickerProviderStateMixin
                         icon: Icons.stop,
                         color: Colors.red,
                         onTap: () {
+                           HapticService.medium();
                            _stopDbTimer();
                            Navigator.pop(context);
                         },
@@ -209,6 +244,7 @@ class _FocusScreenState extends State<FocusScreen> with TickerProviderStateMixin
           ),
         ],
       ),
+    ),
     );
   }
 

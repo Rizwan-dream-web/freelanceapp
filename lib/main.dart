@@ -12,6 +12,7 @@ import 'screens/clients_screen.dart';
 import 'screens/focus_screen.dart'; 
 import 'models/models.dart';
 import 'services/hive_service.dart';
+import 'services/haptic_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -24,13 +25,16 @@ class FreelancerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF6366F1); // Indigo
-    const Color accentColor = Color(0xFF10B981); // Emerald
-
     return ValueListenableBuilder(
       valueListenable: Hive.box('settings').listenable(),
       builder: (context, box, _) {
         final isDarkMode = box.get('isDarkMode', defaultValue: false);
+        final int primaryValue = box.get('primaryColor', defaultValue: 0xFF6366F1);
+        final int accentValue = box.get('accentColor', defaultValue: 0xFF10B981);
+        
+        final Color primaryColor = Color(primaryValue);
+        final Color accentColor = Color(accentValue);
+
         return MaterialApp(
           title: 'Freelancer App',
           debugShowCheckedModeBanner: false,
@@ -73,21 +77,23 @@ class FreelancerApp extends StatelessWidget {
               brightness: Brightness.dark,
               primary: primaryColor,
               secondary: accentColor,
-              surface: const Color(0xFF1E293B),
-              background: const Color(0xFF0F172A),
+              surface: const Color(0xFF0A0A0A), // Near black
+              background: Colors.black, // Pure black for OLED
+              onBackground: Colors.white,
+              onSurface: Colors.white,
             ),
             fontFamily: GoogleFonts.poppins().fontFamily,
-            scaffoldBackgroundColor: const Color(0xFF0F172A),
+            scaffoldBackgroundColor: Colors.black,
             cardTheme: const CardThemeData(
               elevation: 0,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(20))),
-              color: Color(0xFF1E293B),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(24))),
+              color: Color(0xFF0A0A0A),
             ),
             navigationBarTheme: NavigationBarThemeData(
-              backgroundColor: const Color(0xFF1E293B),
-              indicatorColor: primaryColor.withOpacity(0.2),
+              backgroundColor: Colors.black,
+              indicatorColor: primaryColor.withOpacity(0.1),
               labelTextStyle: WidgetStateProperty.all(
-                GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+                GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
               ),
             ),
             pageTransitionsTheme: const PageTransitionsTheme(
@@ -153,7 +159,10 @@ class _MainContainerState extends State<MainContainer> {
       body: _screens[_currentIndex],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        onDestinationSelected: (index) {
+          HapticService.light();
+          setState(() => _currentIndex = index);
+        },
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Work'),
           NavigationDestination(icon: Icon(Icons.description_outlined), selectedIcon: Icon(Icons.description), label: 'Proposals'),

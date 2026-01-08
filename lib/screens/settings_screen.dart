@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
 import '../models/models.dart';
+import 'backup_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -44,6 +45,8 @@ class SettingsScreen extends StatelessWidget {
                   activeColor: Colors.blue,
                 ),
               ),
+              const SizedBox(height: 10),
+              _buildColorPicker(context, settingsBox),
 
               const SizedBox(height: 30),
               // Currency Section
@@ -135,7 +138,7 @@ class SettingsScreen extends StatelessWidget {
 
               const SizedBox(height: 30),
               // Data Management Section
-              Text('Data Management', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+              Text('Trust & Continuity', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
               const SizedBox(height: 10),
               Card(
                 elevation: 0,
@@ -146,23 +149,18 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                     ListTile(
-                      leading: const Icon(Icons.copy),
-                      title: Text('Backup Data (Copy)', style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
-                      subtitle: Text('Copy all data to clipboard', style: GoogleFonts.poppins(fontSize: 12)),
-                      onTap: () => _copyData(context),
-                    ),
-                    const Divider(height: 1),
                     ListTile(
-                      leading: const Icon(Icons.paste),
-                      title: Text('Restore Data (Paste)', style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
-                      subtitle: Text('Paste JSON to restore', style: GoogleFonts.poppins(fontSize: 12)),
-                      onTap: () => _pasteData(context),
+                      leading: const Icon(Icons.backup_outlined, color: Colors.blue),
+                      title: Text('Backup & Restore', style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+                      subtitle: Text('Manage snapshots and restore points', style: GoogleFonts.poppins(fontSize: 12)),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupScreen())),
                     ),
                     const Divider(height: 1),
                     ListTile(
                       leading: const Icon(Icons.delete_forever, color: Colors.red),
-                      title: Text('Clear All Data', style: GoogleFonts.poppins(fontWeight: FontWeight.w500, color: Colors.red)),
+                      title: Text('Factory Reset', style: GoogleFonts.poppins(fontWeight: FontWeight.w500, color: Colors.red)),
+                      subtitle: Text('Clear all data and settings', style: GoogleFonts.poppins(fontSize: 12)),
                       onTap: () => _clearAllData(context),
                     ),
                   ],
@@ -177,6 +175,51 @@ class SettingsScreen extends StatelessWidget {
           );
         }
       ),
+    );
+  }
+
+  Widget _buildColorPicker(BuildContext context, Box settingsBox) {
+    final List<Color> colors = [
+      const Color(0xFF6366F1), // Indigo
+      const Color(0xFFEC4899), // Pink
+      const Color(0xFF10B981), // Emerald
+      const Color(0xFFF59E0B), // Amber
+      const Color(0xFF3B82F6), // Blue
+      const Color(0xFF8B5CF6), // Violet
+    ];
+
+    final currentPrimary = settingsBox.get('primaryColor', defaultValue: 0xFF6366F1);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Accent Color', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: colors.map((color) {
+            final isSelected = currentPrimary == color.value;
+            return GestureDetector(
+              onTap: () {
+                settingsBox.put('primaryColor', color.value);
+                // We set accent slightly different for contrast
+                settingsBox.put('accentColor', color.withOpacity(0.8).value);
+              },
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: isSelected ? Border.all(color: Colors.white, width: 3) : null,
+                  boxShadow: isSelected ? [BoxShadow(color: color.withOpacity(0.4), blurRadius: 10)] : null,
+                ),
+                child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 

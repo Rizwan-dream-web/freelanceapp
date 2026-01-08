@@ -13,6 +13,23 @@ class Note extends HiveObject {
     required this.lastUpdated,
     this.colorIndex = 0,
   });
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'content': content,
+      'lastUpdated': lastUpdated.millisecondsSinceEpoch,
+      'colorIndex': colorIndex,
+    };
+  }
+
+  static Note fromMap(Map<String, dynamic> map) {
+    return Note(
+      id: map['id'],
+      content: map['content'],
+      lastUpdated: DateTime.fromMillisecondsSinceEpoch(map['lastUpdated']),
+      colorIndex: map['colorIndex'],
+    );
+  }
 }
 
 class NoteAdapter extends TypeAdapter<Note> {
@@ -55,6 +72,27 @@ class Client extends HiveObject {
     required this.phone,
     required this.notes,
   });
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'company': company,
+      'email': email,
+      'phone': phone,
+      'notes': notes,
+    };
+  }
+
+  static Client fromMap(Map<String, dynamic> map) {
+    return Client(
+      id: map['id'],
+      name: map['name'],
+      company: map['company'],
+      email: map['email'],
+      phone: map['phone'],
+      notes: map['notes'],
+    );
+  }
 }
 
 class ClientAdapter extends TypeAdapter<Client> {
@@ -95,6 +133,8 @@ class Proposal extends HiveObject {
   String status; // 'Pending', 'Accepted', 'Rejected'
   String timeline; // New for v2
 
+  String style; // 'Creative', 'Corporate', 'Minimal'
+
   Proposal({
     required this.id,
     required this.clientName,
@@ -104,7 +144,35 @@ class Proposal extends HiveObject {
     required this.dateSent,
     this.status = 'Pending',
     this.timeline = '',
+    this.style = 'Corporate',
   });
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'clientName': clientName,
+      'projectTitle': projectTitle,
+      'description': description,
+      'estimatedBudget': estimatedBudget,
+      'dateSent': dateSent.millisecondsSinceEpoch,
+      'status': status,
+      'timeline': timeline,
+      'style': style,
+    };
+  }
+
+  static Proposal fromMap(Map<String, dynamic> map) {
+    return Proposal(
+      id: map['id'],
+      clientName: map['clientName'],
+      projectTitle: map['projectTitle'],
+      description: map['description'],
+      estimatedBudget: (map['estimatedBudget'] as num).toDouble(),
+      dateSent: DateTime.fromMillisecondsSinceEpoch(map['dateSent']),
+      status: map['status'],
+      timeline: map['timeline'] ?? '',
+      style: map['style'] ?? 'Corporate',
+    );
+  }
 }
 
 class ProposalAdapter extends TypeAdapter<Proposal> {
@@ -123,8 +191,12 @@ class ProposalAdapter extends TypeAdapter<Proposal> {
     
     // Migration
     String timeline = '';
+    String style = 'Corporate';
     if (reader.availableBytes > 0) {
       timeline = reader.readString();
+    }
+    if (reader.availableBytes > 0) {
+      style = reader.readString();
     }
 
     return Proposal(
@@ -136,6 +208,7 @@ class ProposalAdapter extends TypeAdapter<Proposal> {
       dateSent: dateSent,
       status: status,
       timeline: timeline,
+      style: style,
     );
   }
 
@@ -149,6 +222,7 @@ class ProposalAdapter extends TypeAdapter<Proposal> {
     writer.writeInt(obj.dateSent.millisecondsSinceEpoch);
     writer.writeString(obj.status);
     writer.writeString(obj.timeline);
+    writer.writeString(obj.style);
   }
 }
 
@@ -175,6 +249,33 @@ class Project extends HiveObject {
     this.clientId,
     this.currency = 'USD',
   });
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'name': name,
+      'clientName': clientName,
+      'budget': budget,
+      'status': status,
+      'deadline': deadline.millisecondsSinceEpoch,
+      'estimatedHours': estimatedHours,
+      'clientId': clientId,
+      'currency': currency,
+    };
+  }
+
+  static Project fromMap(Map<String, dynamic> map) {
+    return Project(
+      id: map['id'],
+      name: map['name'],
+      clientName: map['clientName'],
+      budget: (map['budget'] as num).toDouble(),
+      status: map['status'],
+      deadline: DateTime.fromMillisecondsSinceEpoch(map['deadline']),
+      estimatedHours: map['estimatedHours'] ?? 0,
+      clientId: map['clientId'],
+      currency: map['currency'] ?? 'USD',
+    );
+  }
 }
 
 class ProjectAdapter extends TypeAdapter<Project> {
@@ -244,6 +345,7 @@ class TaskItem extends HiveObject {
   int totalSeconds;
   bool isRunning;
   int? lastStartTime; // Milliseconds since epoch
+  Map<String, int> dailyTracked; // yyyy-MM-dd -> seconds
 
   TaskItem({
     required this.id,
@@ -253,7 +355,33 @@ class TaskItem extends HiveObject {
     this.totalSeconds = 0,
     this.isRunning = false,
     this.lastStartTime,
-  });
+    Map<String, int>? dailyTracked,
+  }) : dailyTracked = dailyTracked ?? {};
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'projectId': projectId,
+      'title': title,
+      'isCompleted': isCompleted,
+      'totalSeconds': totalSeconds,
+      'isRunning': isRunning,
+      'lastStartTime': lastStartTime,
+      'dailyTracked': dailyTracked,
+    };
+  }
+
+  static TaskItem fromMap(Map<String, dynamic> map) {
+    return TaskItem(
+      id: map['id'],
+      projectId: map['projectId'],
+      title: map['title'],
+      isCompleted: map['isCompleted'],
+      totalSeconds: map['totalSeconds'] ?? 0,
+      isRunning: map['isRunning'] ?? false,
+      lastStartTime: map['lastStartTime'],
+      dailyTracked: Map<String, int>.from(map['dailyTracked'] ?? {}),
+    );
+  }
 }
 
 class TaskAdapter extends TypeAdapter<TaskItem> {
@@ -272,6 +400,7 @@ class TaskAdapter extends TypeAdapter<TaskItem> {
     int totalSeconds = 0;
     bool isRunning = false;
     int? lastStartTime;
+    Map<String, int> dailyTracked = {};
 
     try {
       // Attempt to read new fields if they exist
@@ -282,6 +411,9 @@ class TaskAdapter extends TypeAdapter<TaskItem> {
         if (hasTime) {
           lastStartTime = reader.readInt();
         }
+      }
+      if (reader.availableBytes > 0) {
+        dailyTracked = Map<String, int>.from(reader.readMap());
       }
     } catch (e) {
       // Ignore read errors for backward compatibility
@@ -295,6 +427,7 @@ class TaskAdapter extends TypeAdapter<TaskItem> {
       totalSeconds: totalSeconds,
       isRunning: isRunning,
       lastStartTime: lastStartTime,
+      dailyTracked: dailyTracked,
     );
   }
 
@@ -313,6 +446,7 @@ class TaskAdapter extends TypeAdapter<TaskItem> {
     } else {
       writer.writeBool(false);
     }
+    writer.writeMap(obj.dailyTracked);
   }
 }
 
@@ -326,6 +460,8 @@ class Invoice extends HiveObject {
   String? projectId; // Linked project
   bool isExternal; // For invoices without a project
   String currency; // 'USD' or 'INR'
+  bool isGstEnabled; // GST Support
+  double gstPercentage;
 
   Invoice({
     required this.id,
@@ -336,7 +472,38 @@ class Invoice extends HiveObject {
     this.projectId,
     this.isExternal = false,
     this.currency = 'USD',
+    this.isGstEnabled = false,
+    this.gstPercentage = 18.0,
   });
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'clientName': clientName,
+      'amount': amount,
+      'date': date.millisecondsSinceEpoch,
+      'status': status,
+      'projectId': projectId,
+      'isExternal': isExternal,
+      'currency': currency,
+      'isGstEnabled': isGstEnabled,
+      'gstPercentage': gstPercentage,
+    };
+  }
+
+  static Invoice fromMap(Map<String, dynamic> map) {
+    return Invoice(
+      id: map['id'],
+      clientName: map['clientName'],
+      amount: (map['amount'] as num).toDouble(),
+      date: DateTime.fromMillisecondsSinceEpoch(map['date']),
+      status: map['status'],
+      projectId: map['projectId'],
+      isExternal: map['isExternal'] ?? false,
+      currency: map['currency'] ?? 'USD',
+      isGstEnabled: map['isGstEnabled'] ?? false,
+      gstPercentage: (map['gstPercentage'] as num?)?.toDouble() ?? 18.0,
+    );
+  }
 }
 
 class InvoiceAdapter extends TypeAdapter<Invoice> {
@@ -362,6 +529,12 @@ class InvoiceAdapter extends TypeAdapter<Invoice> {
       if (reader.availableBytes > 0) isExternal = reader.readBool();
       if (reader.availableBytes > 0) currency = reader.readString();
     }
+    
+    // Migration for GST
+    bool isGstEnabled = false;
+    double gstPercentage = 18.0;
+    if (reader.availableBytes > 0) isGstEnabled = reader.readBool();
+    if (reader.availableBytes > 0) gstPercentage = reader.readDouble();
 
     return Invoice(
       id: id,
@@ -372,6 +545,8 @@ class InvoiceAdapter extends TypeAdapter<Invoice> {
       projectId: projectId,
       isExternal: isExternal,
       currency: currency,
+      isGstEnabled: isGstEnabled,
+      gstPercentage: gstPercentage,
     );
   }
 
@@ -387,5 +562,7 @@ class InvoiceAdapter extends TypeAdapter<Invoice> {
     if (obj.projectId != null) writer.writeString(obj.projectId!);
     writer.writeBool(obj.isExternal);
     writer.writeString(obj.currency);
+    writer.writeBool(obj.isGstEnabled);
+    writer.writeDouble(obj.gstPercentage);
   }
 }

@@ -64,11 +64,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
-          ),
+          color: Colors.black, // Consistent with Ultra Dark
         ),
         child: Center(
           child: Column(
@@ -79,46 +75,93 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 child: FadeTransition(
                   opacity: _fadeAnimation,
                   child: Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                       color: Colors.white,
+                       gradient: const LinearGradient(
+                         begin: Alignment.topLeft,
+                         end: Alignment.bottomRight,
+                         colors: [Color(0xFF6366F1), Color(0xFF4338CA)],
+                       ),
                        shape: BoxShape.circle,
                        boxShadow: [
                          BoxShadow(
-                           color: Colors.black.withOpacity(0.1),
-                           blurRadius: 20,
-                           spreadRadius: 5,
+                           color: const Color(0xFF6366F1).withOpacity(0.3),
+                           blurRadius: 30,
+                           spreadRadius: 2,
                          )
                        ]
                     ),
-                    child: const Icon(Icons.flash_on_rounded, size: 60, color: Color(0xFF2196F3)),
+                    child: const Icon(Icons.flash_on_rounded, size: 70, color: Colors.white),
                   ),
                 ),
               ),
               const SizedBox(height: 30),
               FadeTransition(
                 opacity: _fadeAnimation,
-                child: Text(
-                  'Freelancer App',
-                  style: GoogleFonts.poppins(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                    letterSpacing: 1.2,
-                  ),
+                child: Column(
+                  children: [
+                    Text(
+                      'Freelancer App',
+                      style: GoogleFonts.poppins(
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    Text(
+                      'YOUR COMMAND CENTER',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white.withOpacity(0.6),
+                        letterSpacing: 3,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 50),
               Shimmer.fromColors(
-                baseColor: Colors.white.withOpacity(0.4),
-                highlightColor: Colors.white,
+                baseColor: Colors.white.withOpacity(0.2),
+                highlightColor: Colors.white.withOpacity(0.8),
                 child: Container(
-                  width: 150,
-                  height: 4,
+                  width: 120,
+                  height: 3,
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(2),
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.only(bottom: 40),
+        color: Colors.black,
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Made with ❤️ by',
+                style: GoogleFonts.poppins(
+                  fontSize: 10,
+                  color: Colors.white.withOpacity(0.4),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'RIZWAN KHAN — YNG MEDIA',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.white.withOpacity(0.7),
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
                 ),
               ),
             ],

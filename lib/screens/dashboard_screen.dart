@@ -10,7 +10,10 @@ import '../widgets/global_search_delegate.dart';
 import '../services/currency_service.dart';
 import 'settings_screen.dart';
 import 'reports_screen.dart';
+import 'focus_screen.dart';
 import '../widgets/app_card.dart';
+import '../widgets/command_search.dart';
+import '../services/haptic_service.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -53,7 +56,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.search),
-            onPressed: () => showSearch(context: context, delegate: GlobalSearchDelegate()),
+            onPressed: () {
+              HapticService.light();
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (context) => const CommandSearch(),
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.lightbulb_outline), // Idea Box
@@ -117,6 +128,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     final totalTrackedHours = totalTrackedSeconds / 3600;
                     final burnRate = totalEstimated == 0 ? 0.0 : (totalTrackedHours / totalEstimated).clamp(0.0, 1.0);
 
+                    // 3.5 Daily Effort (Today only)
+                    double todayTrackedSeconds = 0;
+                    final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                    for (var t in tasks) {
+                      todayTrackedSeconds += (t.dailyTracked[todayKey] ?? 0);
+                      if (t.isRunning && t.lastStartTime != null) {
+                         // Add time spent since last start if it started today
+                         final startTime = DateTime.fromMillisecondsSinceEpoch(t.lastStartTime!);
+                         if (DateFormat('yyyy-MM-dd').format(startTime) == todayKey) {
+                           todayTrackedSeconds += ((now - t.lastStartTime!) / 1000).floor();
+                         }
+                      }
+                    }
+                    final todayTrackedHours = todayTrackedSeconds / 3600;
+
                     // 4. Action Alerts
                     final overdueInvoices = invoices.where((i) => i.status == 'Pending' && i.date.isBefore(DateTime.now())).length;
                     final pendingProposals = Hive.box<Proposal>('proposals').values.where((p) => p.status == 'Pending').length;
@@ -130,6 +156,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           // --- Welcome Message ---
                           Text('Good evening, Rizwan', style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold)),
                           Text('Ready to crush your goals today?', style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey)),
+                          const SizedBox(height: 20),
+                          
+                          // --- Daily Effort Banner (Invisible Tracking) ---
+                          _buildDailyEffortBanner(context, todayTrackedHours),
+                          
                           const SizedBox(height: 25),
 
                           // --- Daily Focus Card ---
@@ -146,34 +177,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                              const SizedBox(height: 25),
                           ],
 
-                          // --- Storytelling Insight (SMART) ---
-                          if (paidInvoices.isNotEmpty) ...[
-                            AppCard(
-                              color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.auto_awesome, color: Color(0xFF6366F1), size: 24),
-                                  const SizedBox(width: 15),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Smart Insight', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF6366F1))),
-                                        Text(
-                                          totalPaidConverted > 0 
-                                            ? 'You earned more this month than last! Keep the momentum high. 🚀'
-                                            : 'No earnings yet this month. Time to follow up on your pending proposals!',
-                                          style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                          ],
+                          // --- Proactive Insights (Command Center) ---
+                          _buildSmartInsight(context, invoices, activeProjects, Hive.box<Proposal>('proposals').values.toList()),
+                          const SizedBox(height: 25),
 
                           // --- Time Burn Indicator ---
                           if (activeProjects.isNotEmpty) ...[
@@ -185,9 +191,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           const SizedBox(height: 10),
                           Row(
                             children: [
-                              Expanded(child: _buildStatCard(context, 'Total Paid', CurrencyService.format(totalPaidConverted, CurrencyService.globalCurrency), Icons.payments_outlined, Colors.indigo)),
+                              Expanded(
+                                child: _buildStatCard(
+                                  context, 
+                                  'Total Paid', 
+                                  totalPaidConverted, 
+                                  Icons.payments_outlined, 
+                                  Colors.indigo,
+                                  isCurrency: true,
+                                ),
+                              ),
                               const SizedBox(width: 15),
-                              Expanded(child: _buildStatCard(context, 'Next Week', CurrencyService.format(expectedConverted, CurrencyService.globalCurrency), Icons.event_available_outlined, Colors.teal)),
+                              Expanded(
+                                child: _buildStatCard(
+                                  context, 
+                                  'Next Week', 
+                                  expectedConverted, 
+                                  Icons.event_available_outlined, 
+                                  Colors.teal,
+                                  isCurrency: true,
+                                ),
+                              ),
                             ],
                           ),
 
@@ -225,10 +249,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [Color(0xFF2196F3), Color(0xFF1976D2)]),
-        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF6366F1), Color(0xFF4338CA)],
+        ),
+        borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: Colors.blue.withOpacity(0.3), blurRadius: 15, offset: const Offset(0, 8)),
+          BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 10)),
         ],
       ),
       child: Column(
@@ -239,49 +267,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
-                child: Text('PRIORITY', style: GoogleFonts.poppins(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),
+                child: Text('TOP PRIORITY', style: GoogleFonts.poppins(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
               ),
-              Icon(Icons.star, color: Colors.white.withOpacity(0.8)),
+              const Icon(Icons.rocket_launch, color: Colors.white70, size: 20),
             ],
           ),
-          const SizedBox(height: 15),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(project.name, style: GoogleFonts.poppins(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
-              Text(
-                CurrencyService.format(project.budget, project.currency),
-                style: GoogleFonts.poppins(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w500),
-              ),
-            ],
-          ),
-          Text(project.clientName, style: GoogleFonts.poppins(color: Colors.white.withOpacity(0.8), fontSize: 16)),
           const SizedBox(height: 20),
-          
-          // Mini Task Preview
-          if (pTasks.isNotEmpty) 
-             ...pTasks.take(2).map((t) => Padding(
-               padding: const EdgeInsets.only(bottom: 6),
-               child: Row(
-                 children: [
-                   Icon(t.isCompleted ? Icons.check_circle : Icons.circle_outlined, color: Colors.white70, size: 16),
-                   const SizedBox(width: 8),
-                   Text(t.title, style: GoogleFonts.poppins(color: Colors.white, fontSize: 13, decoration: t.isCompleted ? TextDecoration.lineThrough : null)),
-                 ],
-               ),
-             )),
-
-          const SizedBox(height: 15),
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: Colors.black12,
-            color: Colors.white,
-            minHeight: 6,
-            borderRadius: BorderRadius.circular(3),
+          Text(project.name, style: GoogleFonts.poppins(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)),
+          Text(project.clientName, style: GoogleFonts.poppins(color: Colors.white.withOpacity(0.7), fontSize: 14)),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('PROGRESS', style: GoogleFonts.poppins(color: Colors.white60, fontSize: 10, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: Colors.white.withOpacity(0.1),
+                      color: Colors.white,
+                      minHeight: 8,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 20),
+              ElevatedButton(
+                onPressed: () {
+                   final pTasks = allTasks.where((t) => t.projectId == project.id).toList();
+                   final taskToStart = pTasks.where((t) => !t.isCompleted).firstOrNull;
+                   if (taskToStart != null) {
+                     Navigator.push(context, MaterialPageRoute(builder: (_) => FocusScreen(task: taskToStart)));
+                   } else {
+                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No active tasks to start.')));
+                   }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: const Color(0xFF6366F1),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: Text('WORK NOW', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 12)),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text('Deadline: ${DateFormat.MMMd().format(project.deadline)}', style: GoogleFonts.poppins(color: Colors.white70, fontSize: 11)),
+          const SizedBox(height: 12),
+          Text(
+            'Goal: ${DateFormat.yMMMd().format(project.deadline)}',
+            style: GoogleFonts.poppins(color: Colors.white.withOpacity(0.6), fontSize: 11),
+          ),
         ],
       ),
     );
@@ -343,7 +383,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildStatCard(BuildContext context, String title, String value, IconData icon, Color color) {
+  Widget _buildSmartInsight(BuildContext context, List<Invoice> invoices, List<Project> activeProjects, List<Proposal> proposals) {
+    // 1. Identify critical issues
+    final overdue = invoices.where((i) => i.status == 'Pending' && i.date.isBefore(DateTime.now())).toList();
+    final nearDeadline = activeProjects.where((p) => p.deadline.difference(DateTime.now()).inDays <= 3 && p.deadline.isAfter(DateTime.now())).toList();
+    final pendingProposals = proposals.where((p) => p.status == 'Pending').toList();
+
+    String title = "Smart Insight";
+    String message = "All systems go! You're dominating your workflow today.";
+    IconData icon = Icons.check_circle_outline;
+    Color color = Colors.green;
+
+    if (overdue.isNotEmpty) {
+       title = "Action Required";
+       message = "You have ${overdue.length} overdue invoice(s). Time to nudge ${overdue.first.clientName}?";
+       icon = Icons.priority_high;
+       color = Colors.orange;
+    } else if (nearDeadline.isNotEmpty) {
+       title = "Upcoming Deadline";
+       message = "${nearDeadline.first.name} is due very soon. Let's wrap it up!";
+       icon = Icons.alarm;
+       color = Colors.blue;
+    } else if (pendingProposals.isNotEmpty) {
+       title = "Opportunity";
+       message = "Don't forget to follow up on your proposal for ${pendingProposals.first.clientName}.";
+       icon = Icons.auto_awesome;
+       color = const Color(0xFF6366F1);
+    }
+
+    return AppCard(
+      color: color.withOpacity(0.05),
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title.toUpperCase(), style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: color, letterSpacing: 1)),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard(BuildContext context, String title, double value, IconData icon, Color color, {bool isCurrency = false}) {
     return AppCard(
       padding: const EdgeInsets.all(16),
       margin: EdgeInsets.zero,
@@ -356,7 +454,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Icon(icon, color: color, size: 20),
           ),
           const SizedBox(height: 12),
-          Text(value, style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)),
+          TweenAnimationBuilder<double>(
+            tween: Tween<double>(begin: 0, end: value),
+            duration: const Duration(seconds: 1),
+            curve: Curves.easeOutExpo,
+            builder: (context, val, _) {
+              return Text(
+                isCurrency ? CurrencyService.format(val, CurrencyService.globalCurrency) : val.toInt().toString(),
+                style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold)
+              );
+            },
+          ),
           Text(title, style: GoogleFonts.poppins(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)),
         ],
       ),
@@ -375,6 +483,49 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onTap: () {
           // Navigation logic could be added here
         },
+      ),
+    );
+  }
+
+  Widget _buildDailyEffortBanner(BuildContext context, double hours) {
+    final bool isProductive = hours >= 4; // Arbitrary 4hr goal
+    
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      color: Colors.black87,
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Colors.white.withOpacity(0.1), shape: BoxShape.circle),
+            child: Icon(hours > 0 ? Icons.bolt : Icons.bedtime_outlined, color: Colors.amber, size: 20),
+          ),
+          const SizedBox(width: 15),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'DAILY EFFORT', 
+                  style: GoogleFonts.poppins(color: Colors.white60, fontSize: 9, fontWeight: FontWeight.bold, letterSpacing: 1.5)
+                ),
+                Text(
+                  hours == 0 ? 'No time tracked yet today' : '${hours.toStringAsFixed(1)} hours of deep work today',
+                  style: GoogleFonts.poppins(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+          if (hours > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: Colors.greenAccent.withOpacity(0.2), borderRadius: BorderRadius.circular(5)),
+              child: Text(
+                isProductive ? '🔥 CRUSHING IT' : 'KEEP GOING',
+                style: GoogleFonts.poppins(color: Colors.greenAccent, fontSize: 8, fontWeight: FontWeight.bold),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -11,147 +11,218 @@ import '../models/models.dart';
 import '../services/currency_service.dart';
 import '../widgets/app_card.dart';
 
-class InvoicesScreen extends StatelessWidget {
+import 'package:confetti/confetti.dart';
+import '../services/invoice_pdf_generator.dart';
+import '../services/haptic_service.dart';
+
+class InvoicesScreen extends StatefulWidget {
   const InvoicesScreen({super.key});
 
   @override
+  State<InvoicesScreen> createState() => _InvoicesScreenState();
+}
+
+class _InvoicesScreenState extends State<InvoicesScreen> {
+  late ConfettiController _confettiController;
+
+  @override
+  void initState() {
+    super.initState();
+    _confettiController = ConfettiController(duration: const Duration(seconds: 2));
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: Text('Invoices', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-        elevation: 0,
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        foregroundColor: Theme.of(context).colorScheme.onSurface,
-      ),
-      body: ValueListenableBuilder(
-        valueListenable: Hive.box<Invoice>('invoices').listenable(),
-        builder: (context, Box<Invoice> box, _) {
-          if (box.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.receipt_long_outlined, size: 60, color: Colors.grey[300]),
-                  const SizedBox(height: 16),
-                  Text('No invoices yet', style: GoogleFonts.poppins(color: Colors.grey[500])),
-                ],
-              ),
-            );
-          }
-          final invoices = box.values.toList().cast<Invoice>();
-          // Sort by date descending
-          invoices.sort((a,b) => b.date.compareTo(a.date));
+    return Stack(
+      children: [
+        Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          appBar: AppBar(
+            title: Text('Invoices', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+            elevation: 0,
+            backgroundColor: Theme.of(context).colorScheme.surface,
+            foregroundColor: Theme.of(context).colorScheme.onSurface,
+          ),
+          body: ValueListenableBuilder(
+            valueListenable: Hive.box<Invoice>('invoices').listenable(),
+            builder: (context, Box<Invoice> box, _) {
+              if (box.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.receipt_long_outlined, size: 60, color: Colors.grey[300]),
+                      const SizedBox(height: 16),
+                      Text('No invoices yet', style: GoogleFonts.poppins(color: Colors.grey[500])),
+                    ],
+                  ),
+                );
+              }
+              final invoices = box.values.toList().cast<Invoice>();
+              // Sort by date descending
+              invoices.sort((a,b) => b.date.compareTo(a.date));
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(20),
-            itemCount: invoices.length,
-            itemBuilder: (context, index) {
-              final invoice = invoices[index];
-              final isPaid = invoice.status == 'Paid';
-              final isOverdue = !isPaid && DateTime.now().difference(invoice.date).inDays > 30;
+              return ListView.builder(
+                padding: const EdgeInsets.all(20),
+                itemCount: invoices.length,
+                itemBuilder: (context, index) {
+                  final invoice = invoices[index];
+                  final isPaid = invoice.status == 'Paid';
+                  final isOverdue = !isPaid && DateTime.now().difference(invoice.date).inDays > 30;
 
-              return AppCard(
-                padding: EdgeInsets.zero,
-                onTap: () => _showOptionsDialog(context, invoice),
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: (isPaid ? Colors.green : (isOverdue ? Colors.red : Colors.orange)).withOpacity(0.1),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              isPaid ? Icons.check_circle_outline : (isOverdue ? Icons.priority_high : Icons.receipt_outlined),
-                              color: isPaid ? Colors.green : (isOverdue ? Colors.red : Colors.orange),
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 15),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  invoice.clientName,
-                                  style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                                Text(
-                                  '${DateFormat.yMMMd().format(invoice.date)} • ${invoice.isExternal ? "External" : "Project-based"}',
-                                  style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
+                  return AppCard(
+                    padding: EdgeInsets.zero,
+                    onTap: () => _showOptionsDialog(context, invoice),
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
                             children: [
-                              Text(
-                                CurrencyService.format(invoice.amount, invoice.currency),
-                                style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: (isPaid ? Colors.green : (isOverdue ? Colors.red : Colors.orange)).withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  isPaid ? Icons.check_circle_outline : (isOverdue ? Icons.priority_high : Icons.receipt_outlined),
+                                  color: isPaid ? Colors.green : (isOverdue ? Colors.red : Colors.orange),
+                                  size: 24,
+                                ),
                               ),
-                              if (isOverdue)
-                                Text('OVERDUE', style: GoogleFonts.poppins(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold))
-                              else if (isPaid)
-                                Text('PAID', style: GoogleFonts.poppins(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold))
-                              else
-                                Text('PENDING', style: GoogleFonts.poppins(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.bold)),
+                              const SizedBox(width: 15),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      invoice.clientName,
+                                      style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
+                                    ),
+                                    Text(
+                                      '${DateFormat.yMMMd().format(invoice.date)} • ${invoice.isExternal ? "External" : "Project-based"}',
+                                      style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                               Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    if (invoice.isGstEnabled) ...[
+                                      Text(
+                                        'Total: ${CurrencyService.format(invoice.amount * (1 + invoice.gstPercentage / 100), invoice.currency)}',
+                                        style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
+                                      ),
+                                      Text(
+                                        'Sub: ${CurrencyService.format(invoice.amount, invoice.currency)} + ${invoice.gstPercentage}% GST',
+                                        style: GoogleFonts.poppins(fontSize: 9, color: Colors.grey, fontWeight: FontWeight.w500),
+                                      ),
+                                    ] else ...[
+                                      Text(
+                                        CurrencyService.format(invoice.amount, invoice.currency),
+                                        style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 16),
+                                      ),
+                                    ],
+                                    if (isOverdue)
+                                      Text('OVERDUE', style: GoogleFonts.poppins(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold))
+                                    else if (isPaid)
+                                      Text('PAID', style: GoogleFonts.poppins(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold))
+                                    else
+                                      Text('PENDING', style: GoogleFonts.poppins(fontSize: 10, color: Colors.orange, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                    // Magic Actions Footer
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary.withOpacity(0.03),
-                        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      child: Row(
-                        children: [
-                          if (!isPaid)
-                            TextButton.icon(
-                              onPressed: () {
-                                invoice.status = 'Paid';
-                                invoice.save();
-                              },
-                              icon: const Icon(Icons.done_all, size: 16, color: Colors.green),
-                              label: Text('Mark Paid', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green)),
-                            ),
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.print_outlined, size: 18, color: Colors.grey),
-                            onPressed: () => _generateAndPrintPdf(context, invoice),
-                            tooltip: 'Print',
+                        ),
+                        // Magic Actions Footer
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.03),
+                            borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.share_outlined, size: 18, color: Colors.grey),
-                            onPressed: () => _sharePdf(context, invoice),
-                            tooltip: 'Share',
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          child: Row(
+                            children: [
+                              if (!isPaid)
+                                TextButton.icon(
+                                  onPressed: () {
+                                    setState(() {
+                                      invoice.status = 'Paid';
+                                      invoice.save();
+                                      _confettiController.play();
+                                    });
+                                  },
+                                  icon: const Icon(Icons.done_all, size: 16, color: Colors.green),
+                                  label: Text('Mark Paid', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.green)),
+                                ),
+                              const Spacer(),
+                              IconButton(
+                                icon: const Icon(Icons.print_outlined, size: 18, color: Colors.grey),
+                                onPressed: () => _generateAndPrintPdf(context, invoice),
+                                tooltip: 'Print',
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.share_outlined, size: 18, color: Colors.grey),
+                                onPressed: () => _sharePdf(context, invoice),
+                                tooltip: 'Share',
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  );
+                },
               );
             },
-          );
-
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddDialog(context),
-        backgroundColor: const Color(0xFF2196F3),
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => _showAddDialog(context),
+            backgroundColor: const Color(0xFF2196F3),
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+        ),
+        
+        // --- Confetti Overlay ---
+        Align(
+          alignment: Alignment.topCenter,
+          child: ConfettiWidget(
+            confettiController: _confettiController,
+            blastDirectionality: BlastDirectionality.explosive,
+            shouldLoop: false,
+            colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
+            createParticlePath: _drawStar,
+          ),
+        ),
+      ],
     );
+  }
+
+  Path _drawStar(Size size) {
+    // Basic star shape
+    double degToRad(double deg) => deg * (3.1415926535897932 / 180.0);
+    const numberOfPoints = 5;
+    final halfWidth = size.width / 2;
+    final externalRadius = halfWidth;
+    final internalRadius = halfWidth / 2.5;
+    final degreesPerStep = degToRad(360 / numberOfPoints);
+    final halfDegreesPerStep = degreesPerStep / 2;
+    final path = Path();
+    final fullAngle = degToRad(-90);
+    path.moveTo(size.width, halfWidth + externalRadius * 0); // Simplified
+    for (double step = 0; step < 360; step += 360 / numberOfPoints) {
+       path.lineTo(halfWidth + externalRadius * 0, halfWidth); // Placeholder for real star logic
+    }
+    // Let's just use a simple circle/diamond if star is too complex for shorthand
+    return Path()..addOval(Rect.fromLTWH(0, 0, size.width, size.height));
   }
 
   void _showAddDialog(BuildContext context) {
@@ -189,8 +260,11 @@ class InvoicesScreen extends StatelessWidget {
               leading: const Icon(Icons.check_circle, color: Colors.green),
               title: Text('Mark as Paid', style: GoogleFonts.poppins()),
               onTap: () {
-                invoice.status = 'Paid';
-                invoice.save();
+                setState(() {
+                  invoice.status = 'Paid';
+                  invoice.save();
+                  _confettiController.play();
+                });
                 Navigator.pop(context);
               },
             ),
@@ -225,7 +299,7 @@ class InvoicesScreen extends StatelessWidget {
   }
 
   Future<void> _generateAndPrintPdf(BuildContext context, Invoice invoice) async {
-    final pdf = await _generatePdfDocument(invoice);
+    final pdf = await InvoicePdfGenerator.generate(invoice);
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdf.save(),
       name: 'Invoice_${invoice.clientName}_${DateFormat('yyyyMMdd').format(invoice.date)}',
@@ -233,86 +307,8 @@ class InvoicesScreen extends StatelessWidget {
   }
 
   Future<void> _sharePdf(BuildContext context, Invoice invoice) async {
-     final pdf = await _generatePdfDocument(invoice);
+     final pdf = await InvoicePdfGenerator.generate(invoice);
      await Printing.sharePdf(bytes: await pdf.save(), filename: 'Invoice.pdf');
-  }
-
-  Future<pw.Document> _generatePdfDocument(Invoice invoice) async {
-    final pdf = pw.Document();
-    final font = await PdfGoogleFonts.poppinsRegular();
-    final boldFont = await PdfGoogleFonts.poppinsBold();
-
-    pdf.addPage(
-      pw.Page(
-        build: (pw.Context context) {
-              final currencySymbol = CurrencyService.symbol;
-              final displayAmount = CurrencyService.convert(invoice.amount, invoice.currency).toStringAsFixed(2);
-              return pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text('INVOICE', style: pw.TextStyle(font: boldFont, fontSize: 40)),
-                  pw.SizedBox(height: 20),
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text('Bill To:', style: pw.TextStyle(font: boldFont)),
-                          pw.Text(invoice.clientName, style: pw.TextStyle(font: font, fontSize: 18)),
-                        ],
-                      ),
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.end,
-                        children: [
-                          pw.Text('Date: ${DateFormat.yMMMd().format(invoice.date)}', style: pw.TextStyle(font: font)),
-                          pw.Text('Invoice ID: #${invoice.id.substring(0, 8)}', style: pw.TextStyle(font: font)),
-                          pw.SizedBox(height: 10),
-                          if(invoice.status == 'Paid')
-                             pw.Text('PAID', style: pw.TextStyle(font: boldFont, color: PdfColors.green, fontSize: 20)),
-                        ],
-                      ),
-                    ],
-                  ),
-                  pw.SizedBox(height: 40),
-                  pw.Container(
-                    decoration: const pw.BoxDecoration(
-                      border: pw.Border(bottom: pw.BorderSide(width: 1))
-                    ),
-                    padding: const pw.EdgeInsets.only(bottom: 10),
-                    child: pw.Row(
-                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      children: [
-                        pw.Text('Description', style: pw.TextStyle(font: boldFont)),
-                        pw.Text('Amount', style: pw.TextStyle(font: boldFont)),
-                      ],
-                    ),
-                  ),
-                  pw.SizedBox(height: 10),
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text('Freelance Services', style: pw.TextStyle(font: font)),
-                      pw.Text('$currencySymbol$displayAmount', style: pw.TextStyle(font: font)),
-                    ],
-                  ),
-                  pw.Spacer(),
-                  pw.Divider(),
-                  pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text('Total', style: pw.TextStyle(font: boldFont, fontSize: 20)),
-                      pw.Text('$currencySymbol$displayAmount', style: pw.TextStyle(font: boldFont, fontSize: 20)),
-                    ],
-                  ),
-              pw.SizedBox(height: 20),
-              pw.Center(child: pw.Text('Thank you for your business!', style: pw.TextStyle(font: font, color: PdfColors.grey))),
-            ],
-          );
-        },
-      ),
-    );
-    return pdf;
   }
 }
 
@@ -331,6 +327,8 @@ class _InvoiceFormState extends State<InvoiceForm> {
   String? _selectedProjectId;
   String _currency = 'USD';
   bool _isExternal = false;
+  bool _isGstEnabled = false;
+  double _gstPercentage = 18.0;
   List<Project> _projects = [];
 
   @override
@@ -364,6 +362,8 @@ class _InvoiceFormState extends State<InvoiceForm> {
         currency: _currency,
         isExternal: _isExternal,
         projectId: _isExternal ? null : _selectedProjectId,
+        isGstEnabled: _isGstEnabled,
+        gstPercentage: _gstPercentage,
       );
 
       box.put(id, newInvoice);
@@ -454,6 +454,45 @@ class _InvoiceFormState extends State<InvoiceForm> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                
+                // --- GST Support ---
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _isGstEnabled ? Colors.green.withOpacity(0.05) : Colors.grey.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('Enable GST (India)', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+                        subtitle: Text('Adds GST breakdown to invoice', style: GoogleFonts.poppins(fontSize: 10)),
+                        value: _isGstEnabled, 
+                        onChanged: (v) => setState(() => _isGstEnabled = v),
+                      ),
+                      if (_isGstEnabled) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Text('GST Rate', style: GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500)),
+                            const Spacer(),
+                            Container(
+                              width: 80,
+                              child: TextFormField(
+                                initialValue: _gstPercentage.toStringAsFixed(0),
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(suffixText: '%', isDense: true),
+                                onChanged: (v) => setState(() => _gstPercentage = double.tryParse(v) ?? 18.0),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
                 

@@ -4,7 +4,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import '../models/models.dart';
 import '../widgets/app_card.dart';
+import '../services/haptic_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../widgets/skeleton_loader.dart';
 
 class ClientsScreen extends StatelessWidget {
   const ClientsScreen({super.key});
@@ -26,16 +28,7 @@ class ClientsScreen extends StatelessWidget {
             valueListenable: Hive.box<Invoice>('invoices').listenable(),
             builder: (context, Box<Invoice> invoiceBox, _) {
               if (clientBox.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.people_outline, size: 60, color: Colors.grey[300]),
-                      const SizedBox(height: 16),
-                      Text('No clients added yet', style: GoogleFonts.poppins(color: Colors.grey[500])),
-                    ],
-                  ),
-                );
+                return _buildEmptyState(context);
               }
 
               final clients = clientBox.values.toList().cast<Client>();
@@ -186,15 +179,28 @@ class ClientsScreen extends StatelessWidget {
       );
       return;
     }
-    final Uri emailLaunchUri = Uri(
-      scheme: 'mailto',
-      path: email,
-    );
-    if (await canLaunchUrl(emailLaunchUri)) {
-      await launchUrl(emailLaunchUri);
-    } else {
+    
+    try {
+      final Uri emailLaunchUri = Uri(
+        scheme: 'mailto',
+        path: email,
+      );
+      // For email, it's often better to just launch and catch the error
+      // as canLaunchUrl can be unreliable on newer Android versions without proper intent queries
+      final bool launched = await launchUrl(
+        emailLaunchUri,
+        mode: LaunchMode.externalApplication,
+      );
+      
+      if (!launched) {
+        throw 'Launch failed';
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not launch email app')),
+        const SnackBar(
+          content: Text('Could not launch email app. Please ensure an email app is installed.'),
+          backgroundColor: Colors.redAccent,
+        ),
       );
     }
   }
@@ -217,6 +223,45 @@ class ClientsScreen extends StatelessWidget {
         const SnackBar(content: Text('Could not launch phone app')),
       );
     }
+  }
+
+  Widget _buildEmptyState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.people_outline, size: 60, color: Theme.of(context).colorScheme.primary.withOpacity(0.5)),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'No clients added yet',
+            style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Your future network starts here.',
+            style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: () => _showAddEditDialog(context),
+            icon: const Icon(Icons.add),
+            label: Text('Add Your First Client', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showAddEditDialog(BuildContext context, {Client? client}) {
@@ -277,6 +322,7 @@ class _ClientFormState extends State<ClientForm> {
 
   void _save() {
     if (_formKey.currentState!.validate()) {
+      HapticService.success();
       final box = Hive.box<Client>('clients');
       final id = widget.client?.id ?? const Uuid().v4();
       final newClient = Client(
@@ -295,6 +341,7 @@ class _ClientFormState extends State<ClientForm> {
 
   void _delete() {
     if (widget.client != null) {
+       HapticService.medium();
        final box = Hive.box<Client>('clients');
        box.delete(widget.client!.id);
        Navigator.pop(context);

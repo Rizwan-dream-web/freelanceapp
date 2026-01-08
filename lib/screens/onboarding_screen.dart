@@ -16,18 +16,18 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<Map<String, String>> _pages = [
     {
-      'title': 'Track Work.',
-      'subtitle': 'Manage projects, track time, and keep your business organized in one place.',
+      'title': 'Master Your\nWorkflow.',
+      'subtitle': 'The ultimate command center for your freelance business. Offline-first, agency-grade.',
       'icon': 'work'
     },
     {
-      'title': 'Send Proposals.',
-      'subtitle': 'Win more clients with professional, template-based proposals sent in seconds.',
+      'title': 'Proposals That\nWin Work.',
+      'subtitle': 'Send professional, high-converting proposals that make you stand out from the crowd.',
       'icon': 'description'
     },
     {
-      'title': 'Get Paid.',
-      'subtitle': 'Generate invoices, track payments, and watch your income grow. Offline first.',
+      'title': 'Invoicing That\nFeels Like Money.',
+      'subtitle': 'Generate agency-grade invoices and celebrate every payment with style.',
       'icon': 'payments'
     },
   ];
