@@ -6,12 +6,14 @@ class Note extends HiveObject {
   String content;
   DateTime lastUpdated;
   int colorIndex; // For sticky note colors
+  String? uid;
 
   Note({
     required this.id,
     required this.content,
     required this.lastUpdated,
     this.colorIndex = 0,
+    this.uid,
   });
   Map<String, dynamic> toMap() {
     return {
@@ -19,6 +21,7 @@ class Note extends HiveObject {
       'content': content,
       'lastUpdated': lastUpdated.millisecondsSinceEpoch,
       'colorIndex': colorIndex,
+      'uid': uid,
     };
   }
 
@@ -28,6 +31,7 @@ class Note extends HiveObject {
       content: map['content'],
       lastUpdated: DateTime.fromMillisecondsSinceEpoch(map['lastUpdated']),
       colorIndex: map['colorIndex'],
+      uid: map['uid'],
     );
   }
 }
@@ -63,6 +67,7 @@ class Client extends HiveObject {
   String email;
   String phone;
   String notes;
+  String? uid;
 
   Client({
     required this.id,
@@ -71,6 +76,7 @@ class Client extends HiveObject {
     required this.email,
     required this.phone,
     required this.notes,
+    this.uid,
   });
   Map<String, dynamic> toMap() {
     return {
@@ -80,6 +86,7 @@ class Client extends HiveObject {
       'email': email,
       'phone': phone,
       'notes': notes,
+      'uid': uid,
     };
   }
 
@@ -91,6 +98,7 @@ class Client extends HiveObject {
       email: map['email'],
       phone: map['phone'],
       notes: map['notes'],
+      uid: map['uid'],
     );
   }
 }
@@ -134,6 +142,7 @@ class Proposal extends HiveObject {
   String timeline; // New for v2
 
   String style; // 'Creative', 'Corporate', 'Minimal'
+  String? uid;
 
   Proposal({
     required this.id,
@@ -145,6 +154,7 @@ class Proposal extends HiveObject {
     this.status = 'Pending',
     this.timeline = '',
     this.style = 'Corporate',
+    this.uid,
   });
   Map<String, dynamic> toMap() {
     return {
@@ -157,6 +167,7 @@ class Proposal extends HiveObject {
       'status': status,
       'timeline': timeline,
       'style': style,
+      'uid': uid,
     };
   }
 
@@ -171,6 +182,7 @@ class Proposal extends HiveObject {
       status: map['status'],
       timeline: map['timeline'] ?? '',
       style: map['style'] ?? 'Corporate',
+      uid: map['uid'],
     );
   }
 }
@@ -237,6 +249,7 @@ class Project extends HiveObject {
   int estimatedHours; // New for v2
   String? clientId; // Link to Client model
   String currency; // 'USD' or 'INR'
+  String? uid;
 
   Project({
     required this.id,
@@ -248,6 +261,7 @@ class Project extends HiveObject {
     this.estimatedHours = 0,
     this.clientId,
     this.currency = 'USD',
+    this.uid,
   });
   Map<String, dynamic> toMap() {
     return {
@@ -260,6 +274,7 @@ class Project extends HiveObject {
       'estimatedHours': estimatedHours,
       'clientId': clientId,
       'currency': currency,
+      'uid': uid,
     };
   }
 
@@ -274,6 +289,7 @@ class Project extends HiveObject {
       estimatedHours: map['estimatedHours'] ?? 0,
       clientId: map['clientId'],
       currency: map['currency'] ?? 'USD',
+      uid: map['uid'],
     );
   }
 }
@@ -346,6 +362,7 @@ class TaskItem extends HiveObject {
   bool isRunning;
   int? lastStartTime; // Milliseconds since epoch
   Map<String, int> dailyTracked; // yyyy-MM-dd -> seconds
+  String? uid;
 
   TaskItem({
     required this.id,
@@ -356,6 +373,7 @@ class TaskItem extends HiveObject {
     this.isRunning = false,
     this.lastStartTime,
     Map<String, int>? dailyTracked,
+    this.uid,
   }) : dailyTracked = dailyTracked ?? {};
   Map<String, dynamic> toMap() {
     return {
@@ -367,6 +385,7 @@ class TaskItem extends HiveObject {
       'isRunning': isRunning,
       'lastStartTime': lastStartTime,
       'dailyTracked': dailyTracked,
+      'uid': uid,
     };
   }
 
@@ -380,6 +399,7 @@ class TaskItem extends HiveObject {
       isRunning: map['isRunning'] ?? false,
       lastStartTime: map['lastStartTime'],
       dailyTracked: Map<String, int>.from(map['dailyTracked'] ?? {}),
+      uid: map['uid'],
     );
   }
 }
@@ -462,6 +482,7 @@ class Invoice extends HiveObject {
   String currency; // 'USD' or 'INR'
   bool isGstEnabled; // GST Support
   double gstPercentage;
+  String? uid;
 
   Invoice({
     required this.id,
@@ -474,6 +495,7 @@ class Invoice extends HiveObject {
     this.currency = 'USD',
     this.isGstEnabled = false,
     this.gstPercentage = 18.0,
+    this.uid,
   });
   Map<String, dynamic> toMap() {
     return {
@@ -487,6 +509,7 @@ class Invoice extends HiveObject {
       'currency': currency,
       'isGstEnabled': isGstEnabled,
       'gstPercentage': gstPercentage,
+      'uid': uid,
     };
   }
 
@@ -502,6 +525,7 @@ class Invoice extends HiveObject {
       currency: map['currency'] ?? 'USD',
       isGstEnabled: map['isGstEnabled'] ?? false,
       gstPercentage: (map['gstPercentage'] as num?)?.toDouble() ?? 18.0,
+      uid: map['uid'],
     );
   }
 }

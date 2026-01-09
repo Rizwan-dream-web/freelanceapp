@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/models.dart';
 import '../widgets/quick_notes_sheet.dart';
 import '../widgets/global_search_delegate.dart';
@@ -24,10 +25,12 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   Timer? _timer;
+  String? _userName;
 
   @override
   void initState() {
     super.initState();
+    _loadUserName();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         final taskBox = Hive.box<TaskItem>('tasks');
@@ -44,6 +47,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     super.dispose();
   }
 
+  Future<void> _loadUserName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    String name = user.displayName ?? '';
+    if (name.isEmpty && (user.email ?? '').isNotEmpty) {
+      final email = user.email!;
+      name = email.split('@').first;
+      name = name.isNotEmpty ? '${name[0].toUpperCase()}${name.substring(1)}' : 'You';
+    }
+
+    if (mounted) {
+      setState(() => _userName = name.isEmpty ? 'You' : name);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -54,6 +73,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
         actions: [
+          ValueListenableBuilder(
+            valueListenable: Hive.box('settings').listenable(keys: ['isCloudMigrated']),
+            builder: (context, box, _) {
+              final isMigrated = box.get('isCloudMigrated', defaultValue: false);
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: Icon(
+                  isMigrated ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
+                  size: 16,
+                  color: isMigrated ? Colors.green.withOpacity(0.5) : Colors.grey.withOpacity(0.5),
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.search),
             onPressed: () {
@@ -150,12 +183,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     return SingleChildScrollView(
                       padding: const EdgeInsets.all(20),
                       child: Column(
-
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // --- Welcome Message ---
-                          Text('Good evening, Rizwan', style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold)),
-                          Text('Ready to crush your goals today?', style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey)),
+                          // --- Welcome Message (Dynamic) ---
+                          Builder(
+                            builder: (context) {
+                              final hour = DateTime.now().hour;
+                              String period;
+                              if (hour < 12) {
+                                period = 'Good morning';
+                              } else if (hour < 17) {
+                                period = 'Good afternoon';
+                              } else {
+                                period = 'Good evening';
+                              }
+                              final name = _userName ?? 'there';
+                              return Text(
+                                '$period, $name',
+                                style: GoogleFonts.poppins(fontSize: 24, fontWeight: FontWeight.bold),
+                              );
+                            },
+                          ),
+                          Text(
+                            'Ready to crush your goals today?',
+                            style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
+                          ),
                           const SizedBox(height: 20),
                           
                           // --- Daily Effort Banner (Invisible Tracking) ---

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "843090921240",
+    "project_id": "freelancer-app-a7c71",
+    "storage_bucket": "freelancer-app-a7c71.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:843090921240:android:18d19d7a3974f19f08406d",
+        "android_client_info": {
+          "package_name": "com.actualminds.invoiceapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBNNkFq16a_vmyx9DG9Y59w-dC0E3VrvaI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

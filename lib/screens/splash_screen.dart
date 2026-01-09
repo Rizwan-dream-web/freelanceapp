@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:hive_flutter/hive_flutter.dart';
-import 'onboarding_screen.dart';
-import '../main.dart'; // To access MainContainer
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -38,19 +35,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   Future<void> _navigateToNext() async {
-    // Artificial delay for the premium feel
-    await Future.delayed(const Duration(seconds: 3));
-    
-    if (mounted) {
-      final settingsBox = Hive.box('settings');
-      final bool hasSeenOnboarding = settingsBox.get('hasSeenOnboarding', defaultValue: false);
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => hasSeenOnboarding ? const MainContainer() : const OnboardingScreen(),
-        ),
-      );
-    }
+    // NOTE: Navigation is now handled by the top-level auth StreamBuilder in main.dart.
+    // We keep a short delay only to ensure the animation is visible on cold start.
+    await Future.delayed(const Duration(seconds: 2));
   }
 
   @override

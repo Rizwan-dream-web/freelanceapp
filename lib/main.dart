@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/splash_screen.dart';
@@ -13,9 +14,23 @@ import 'screens/focus_screen.dart';
 import 'models/models.dart';
 import 'services/hive_service.dart';
 import 'services/haptic_service.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'firebase_options.dart';
+import 'screens/login_screen.dart';
+import 'screens/email_verification_screen.dart';
+import 'screens/sync_migration_screen.dart';
+import 'services/sync_service.dart';
+import 'services/cloud_sync_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase on all platforms
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  
   await HiveService.init();
   runApp(const FreelancerApp());
 }
@@ -104,7 +119,35 @@ class FreelancerApp extends StatelessWidget {
               },
             ),
           ),
-          home: const SplashScreen(),
+          home: StreamBuilder<User?>(
+            stream: FirebaseAuth.instance.authStateChanges(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SplashScreen();
+              }
+
+              final user = snapshot.data;
+              if (user != null) {
+                // If the user is logged in but not verified, hold them on a verification screen
+                if (!user.emailVerified && (user.providerData.any((p) => p.providerId == 'password'))) {
+                  return const EmailVerificationScreen();
+                }
+
+                return StatefulBuilder(
+                  builder: (context, setState) {
+                    final sync = SyncService();
+                    if (sync.needsMigration) {
+                      return SyncMigrationScreen(onComplete: () => setState(() {}));
+                    }
+                    CloudSyncService.init(); // Start background listener
+                    return const MainContainer();
+                  },
+                );
+              }
+
+              return const LoginScreen();
+            },
+          ),
         );
       },
     );

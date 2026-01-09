@@ -5,6 +5,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
 import '../models/models.dart';
 import 'backup_screen.dart';
+import 'profile_screen.dart';
+import '../services/auth_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -83,6 +86,78 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+
+              const SizedBox(height: 30),
+              // Account Section
+              Text('Account', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey)),
+              const SizedBox(height: 10),
+              StreamBuilder<User?>(
+                stream: FirebaseAuth.instance.authStateChanges(),
+                builder: (context, snapshot) {
+                  final user = snapshot.data;
+                  if (user == null) return const SizedBox.shrink();
+                  
+                  return Card(
+                    elevation: 0,
+                    color: Theme.of(context).cardColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: CircleAvatar(
+                            backgroundImage: user.photoURL != null ? NetworkImage(user.photoURL!) : null,
+                            child: user.photoURL == null ? const Icon(Icons.person) : null,
+                          ),
+                          title: Text(user.displayName ?? user.email ?? 'User', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+                          subtitle: Text(user.email ?? '', style: GoogleFonts.poppins(fontSize: 12)),
+                        ),
+                        const Divider(height: 1),
+                      ListTile(
+                        leading: const Icon(Icons.person_outline),
+                        title: Text('View Profile', style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                          );
+                        },
+                      ),
+                      const Divider(height: 1),
+                        ListTile(
+                          leading: const Icon(Icons.logout, color: Colors.red),
+                          title: Text('Logout', style: GoogleFonts.poppins(fontWeight: FontWeight.w500, color: Colors.red)),
+                          onTap: () async {
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: Text('Logout', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+                                content: Text('Are you sure you want to logout?', style: GoogleFonts.poppins()),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text('Logout', style: TextStyle(color: Colors.red)),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              await AuthService().signOut();
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
 
               const SizedBox(height: 30),

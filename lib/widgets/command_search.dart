@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/models.dart';
+import '../screens/clients_screen.dart';
+import '../screens/projects_screen.dart';
 import '../services/haptic_service.dart';
 import '../widgets/app_card.dart';
 
@@ -143,11 +145,26 @@ class _CommandSearchState extends State<CommandSearch> {
       margin: const EdgeInsets.only(bottom: 12),
       onTap: () {
         HapticService.light();
-        // In a real app, navigate to the specific detail screen
+        // Navigate directly to the relevant screen for the selected result
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Jumping to: $title')),
-        );
+
+        if (item is Client) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ClientsScreen()),
+          );
+        } else if (item is Project) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ProjectsScreen()),
+          );
+        } else if (item is Invoice) {
+          // For now, just show where the invoice belongs (client page)
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ClientsScreen()),
+          );
+        }
       },
       child: Row(
         children: [

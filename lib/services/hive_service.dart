@@ -17,7 +17,13 @@ class HiveService {
 
     // Security & Encryption
     const secureStorage = FlutterSecureStorage();
-    String? encryptionKeyString = await secureStorage.read(key: 'hiveKey');
+    String? encryptionKeyString;
+    try {
+      encryptionKeyString = await secureStorage.read(key: 'hiveKey');
+    } catch (e) {
+      // If secure storage fails, use unencrypted
+      encryptionKeyString = null;
+    }
     List<int> encryptionKey;
 
     if (encryptionKeyString == null) {
@@ -32,7 +38,11 @@ class HiveService {
       }
 
       encryptionKey = Hive.generateSecureKey();
-      await secureStorage.write(key: 'hiveKey', value: base64UrlEncode(encryptionKey));
+      try {
+        await secureStorage.write(key: 'hiveKey', value: base64UrlEncode(encryptionKey));
+      } catch (e) {
+        // If write fails, continue without encryption
+      }
 
       if (hasUnencryptedData) {
         await _performMigration(encryptionKey);
