@@ -482,6 +482,7 @@ class Invoice extends HiveObject {
   String currency; // 'USD' or 'INR'
   bool isGstEnabled; // GST Support
   double gstPercentage;
+  String description; // Invoice description/notes
   String? uid;
 
   Invoice({
@@ -495,6 +496,7 @@ class Invoice extends HiveObject {
     this.currency = 'USD',
     this.isGstEnabled = false,
     this.gstPercentage = 18.0,
+    this.description = '',
     this.uid,
   });
   Map<String, dynamic> toMap() {
@@ -509,6 +511,7 @@ class Invoice extends HiveObject {
       'currency': currency,
       'isGstEnabled': isGstEnabled,
       'gstPercentage': gstPercentage,
+      'description': description,
       'uid': uid,
     };
   }
@@ -525,6 +528,7 @@ class Invoice extends HiveObject {
       currency: map['currency'] ?? 'USD',
       isGstEnabled: map['isGstEnabled'] ?? false,
       gstPercentage: (map['gstPercentage'] as num?)?.toDouble() ?? 18.0,
+      description: map['description'] ?? '',
       uid: map['uid'],
     );
   }
@@ -560,6 +564,10 @@ class InvoiceAdapter extends TypeAdapter<Invoice> {
     if (reader.availableBytes > 0) isGstEnabled = reader.readBool();
     if (reader.availableBytes > 0) gstPercentage = reader.readDouble();
 
+    // Migration for description
+    String description = '';
+    if (reader.availableBytes > 0) description = reader.readString();
+
     return Invoice(
       id: id,
       clientName: clientName,
@@ -571,6 +579,7 @@ class InvoiceAdapter extends TypeAdapter<Invoice> {
       currency: currency,
       isGstEnabled: isGstEnabled,
       gstPercentage: gstPercentage,
+      description: description,
     );
   }
 
@@ -588,5 +597,6 @@ class InvoiceAdapter extends TypeAdapter<Invoice> {
     writer.writeString(obj.currency);
     writer.writeBool(obj.isGstEnabled);
     writer.writeDouble(obj.gstPercentage);
+    writer.writeString(obj.description);
   }
 }

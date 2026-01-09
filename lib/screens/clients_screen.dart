@@ -152,7 +152,7 @@ class ClientsScreen extends StatelessWidget {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddEditDialog(context),
-        child: const Icon(Icons.person_add, color: Colors.white),
+        child: Icon(Icons.person_add, color: Theme.of(context).colorScheme.onPrimary),
       ),
     );
   }
@@ -237,7 +237,7 @@ class ClientsScreen extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.people_outline, size: 60, color: Theme.of(context).colorScheme.primary.withOpacity(0.5)),
+            child: Icon(Icons.people_outline, size: 60, color: Theme.of(context).colorScheme.primary),
           ),
           const SizedBox(height: 24),
           Text(

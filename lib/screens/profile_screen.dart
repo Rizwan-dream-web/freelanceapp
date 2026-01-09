@@ -15,6 +15,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
   bool _isLoading = true;
   bool _isSaving = false;
 
@@ -37,6 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final data = await AuthService().getUserProfile(user.uid);
       if (data != null) {
         _nameController.text = (data['name'] ?? user.displayName ?? '').toString();
+        _phoneController.text = (data['phone'] ?? '').toString();
       } else {
         _nameController.text = user.displayName ?? '';
       }
@@ -63,6 +65,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await AuthService().updateUserProfile(user.uid, {
         'name': name.isNotEmpty ? name : (user.displayName ?? ''),
         'email': user.email ?? '',
+        'phone': _phoneController.text.trim(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -94,6 +97,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -137,6 +141,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Email',
                       prefixIcon: Icon(Icons.email_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _phoneController,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone Number',
+                      prefixIcon: Icon(Icons.phone_outlined),
                       border: OutlineInputBorder(),
                     ),
                   ),

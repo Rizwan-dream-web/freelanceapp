@@ -110,6 +110,13 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                                       '${DateFormat.yMMMd().format(invoice.date)} • ${invoice.isExternal ? "External" : "Project-based"}',
                                       style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500),
                                     ),
+                                    if (invoice.description.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        invoice.description,
+                                        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600]),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
@@ -323,6 +330,7 @@ class _InvoiceFormState extends State<InvoiceForm> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _clientController;
   late TextEditingController _amountController;
+  late TextEditingController _descriptionController;
   DateTime _date = DateTime.now();
   String? _selectedProjectId;
   String _currency = 'USD';
@@ -336,6 +344,7 @@ class _InvoiceFormState extends State<InvoiceForm> {
     super.initState();
     _clientController = TextEditingController();
     _amountController = TextEditingController();
+    _descriptionController = TextEditingController();
     _loadProjects();
   }
 
@@ -347,6 +356,7 @@ class _InvoiceFormState extends State<InvoiceForm> {
   void dispose() {
     _clientController.dispose();
     _amountController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -364,6 +374,7 @@ class _InvoiceFormState extends State<InvoiceForm> {
         projectId: _isExternal ? null : _selectedProjectId,
         isGstEnabled: _isGstEnabled,
         gstPercentage: _gstPercentage,
+        description: _descriptionController.text,
       );
 
       box.put(id, newInvoice);
@@ -495,7 +506,18 @@ class _InvoiceFormState extends State<InvoiceForm> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                
+
+                TextFormField(
+                  controller: _descriptionController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Description / Notes',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.note),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
                 // --- Smart Calculator ---
                 Container(
                   padding: const EdgeInsets.all(16),

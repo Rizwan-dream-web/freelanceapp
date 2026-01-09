@@ -86,7 +86,7 @@ class AuthService {
   }
 
   // 3. Email/Password (Register with verification)
-  Future<Map<String, dynamic>> registerWithEmail(String email, String password, String name) async {
+  Future<Map<String, dynamic>> registerWithEmail(String email, String password, String name, String? phone) async {
     try {
       final userCred = await _auth.createUserWithEmailAndPassword(
         email: email, 
@@ -104,6 +104,7 @@ class AuthService {
         uid: userCred.user!.uid,
         name: name,
         email: email,
+        phone: phone,
       );
       
       return {'success': true, 'user': userCred.user, 'needsVerification': true};
@@ -162,6 +163,7 @@ class AuthService {
     required String name,
     required String email,
     String? photoUrl,
+    String? phone,
   }) async {
     try {
       await _db.collection('users').doc(uid).set({
@@ -169,6 +171,7 @@ class AuthService {
         'name': name,
         'email': email,
         'photoUrl': photoUrl,
+        'phone': phone,
         'createdAt': FieldValue.serverTimestamp(),
       });
     } catch (e) {

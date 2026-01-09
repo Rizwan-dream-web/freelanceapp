@@ -140,7 +140,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       _buildLoginButton(
                          context,
                          label: 'Continue with Google',
-                         icon: Icons.g_mobiledata,
+                         icon: Icons.login,
                          isPrimary: true,
                          onTap: () async {
                            setState(() => _isLoading = true);
@@ -166,14 +166,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                          icon: Icons.email_outlined,
                          isPrimary: false,
                          onTap: () => _showEmailAuthSheet(context),
-                       ),
-                       const SizedBox(height: 16),
-                       _buildLoginButton(
-                         context,
-                         label: 'Phone Login',
-                         icon: Icons.phone_iphone_outlined,
-                         isPrimary: false,
-                       onTap: () => _showPhoneAuthSheet(context),
                        ),
                      ],
 
@@ -240,18 +232,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
   }
 
-  void _showPhoneAuthSheet(BuildContext context) {
-    HapticService.light();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _AuthBottomSheet(
-        title: 'Phone Login',
-        child: _PhoneForm(),
-      ),
-    );
-  }
 }
 
 class _AuthBottomSheet extends StatelessWidget {
@@ -295,8 +275,10 @@ class _EmailFormState extends State<_EmailForm> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
   bool _isRegister = false;
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   @override
   Widget build(BuildContext context) {
@@ -322,12 +304,28 @@ class _EmailFormState extends State<_EmailForm> {
           ),
         ),
         const SizedBox(height: 16),
+        if (_isRegister) ...[
+          TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            decoration: InputDecoration(
+              labelText: 'Phone Number (Optional)',
+              prefixIcon: const Icon(Icons.phone_outlined),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         TextField(
           controller: _passwordController,
-          obscureText: true,
+          obscureText: _obscurePassword,
           decoration: InputDecoration(
             labelText: 'Password',
             prefixIcon: const Icon(Icons.lock_outline),
+            suffixIcon: IconButton(
+              icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
+              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+            ),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
         ),
@@ -344,6 +342,7 @@ class _EmailFormState extends State<_EmailForm> {
                       _emailController.text,
                       _passwordController.text,
                       _nameController.text,
+                      _phoneController.text.isEmpty ? null : _phoneController.text,
                     )
                   : await auth.signInWithEmail(
                       _emailController.text,
@@ -395,134 +394,3 @@ class _EmailFormState extends State<_EmailForm> {
   }
 }
 
-class _PhoneForm extends StatefulWidget {
-  @override
-  State<_PhoneForm> createState() => _PhoneFormState();
-}
-
-class _PhoneFormState extends State<_PhoneForm> {
-  final _phoneController = TextEditingController();
-  final _otpController = TextEditingController();
-  String? _verificationId;
-  bool _isLoading = false;
-  bool _codeSent = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        if (!_codeSent) ...[
-          TextField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-              hintText: '+91 98765 43210',
-              labelText: 'Phone Number',
-              prefixIcon: const Icon(Icons.phone_outlined),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : () async {
-                setState(() => _isLoading = true);
-                final auth = AuthService();
-                await auth.verifyPhone(
-                  phoneNumber: _phoneController.text,
-                  verificationCompleted: (cred) async {
-                    final result = await auth.signInWithPhoneCredential(cred);
-                    if (mounted && result['success'] == true) {
-                      Navigator.pop(context);
-                    }
-                  },
-                  verificationFailed: (e) {
-                     if (mounted) {
-                       setState(() => _isLoading = false);
-                       ScaffoldMessenger.of(context).showSnackBar(
-                         SnackBar(
-                           content: Text('Verification failed: ${e.message}'),
-                           behavior: SnackBarBehavior.floating,
-                         ),
-                       );
-                     }
-                  },
-                  codeSent: (vid, resend) {
-                    if (mounted) {
-                      setState(() {
-                        _verificationId = vid;
-                        _codeSent = true;
-                        _isLoading = false;
-                      });
-                    }
-                  },
-                  codeAutoRetrievalTimeout: (vid) {
-                    if (mounted) {
-                      setState(() => _verificationId = vid);
-                    }
-                  },
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              child: _isLoading 
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text('Send Verification Code', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ] else ...[
-          TextField(
-            controller: _otpController,
-            keyboardType: TextInputType.number,
-            maxLength: 6,
-            decoration: InputDecoration(
-              labelText: 'Enter OTP',
-              prefixIcon: const Icon(Icons.sms_outlined),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            width: double.infinity,
-            height: 56,
-            child: ElevatedButton(
-              onPressed: _isLoading ? null : () async {
-                setState(() => _isLoading = true);
-                final auth = AuthService();
-                final cred = PhoneAuthProvider.credential(
-                  verificationId: _verificationId!,
-                  smsCode: _otpController.text,
-                );
-                final result = await auth.signInWithPhoneCredential(cred);
-                
-                if (mounted) {
-                  if (result['success'] == true) {
-                    Navigator.pop(context);
-                  } else {
-                    setState(() => _isLoading = false);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(result['error'] ?? 'Invalid OTP')),
-                    );
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              ),
-              child: _isLoading 
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text('Verify & Continue', style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-}

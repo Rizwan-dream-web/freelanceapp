@@ -19,12 +19,16 @@ class UserProfile extends HiveObject {
   @HiveField(4)
   DateTime createdAt;
 
+  @HiveField(5)
+  String? phone;
+
   UserProfile({
     required this.uid,
     required this.name,
     required this.email,
     this.photoUrl,
     required this.createdAt,
+    this.phone,
   });
 
   Map<String, dynamic> toMap() {
@@ -34,6 +38,7 @@ class UserProfile extends HiveObject {
       'email': email,
       'photoUrl': photoUrl,
       'createdAt': createdAt.millisecondsSinceEpoch,
+      'phone': phone,
     };
   }
 
@@ -44,6 +49,7 @@ class UserProfile extends HiveObject {
       email: map['email'],
       photoUrl: map['photoUrl'],
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
+      phone: map['phone'],
     );
   }
 }
