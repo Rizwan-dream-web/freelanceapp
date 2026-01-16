@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'screens/splash_screen.dart';
@@ -10,7 +9,7 @@ import 'screens/projects_screen.dart';
 import 'screens/tasks_screen.dart';
 import 'screens/invoices_screen.dart';
 import 'screens/clients_screen.dart';
-import 'screens/focus_screen.dart'; 
+import 'screens/focus_screen.dart';
 import 'models/models.dart';
 import 'services/hive_service.dart';
 import 'services/haptic_service.dart';
@@ -22,16 +21,43 @@ import 'screens/email_verification_screen.dart';
 import 'screens/sync_migration_screen.dart';
 import 'services/sync_service.dart';
 import 'services/cloud_sync_service.dart';
+import 'services/auth_service.dart';
+import 'services/notification_service.dart';
+import 'constants/app_constants.dart';
+import 'package:go_router/go_router.dart';
+import 'router/app_router.dart';
+import 'widgets/animations.dart'; // Phase 2: Animation Framework
+import 'repositories/repository_manager.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase on all platforms
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    // Initialize Firebase on all platforms
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    ).timeout(const Duration(seconds: 10));
+  } catch (e) {
+    debugPrint('Firebase initialization failed: $e');
+    // We continue even if Firebase fails, app will handle unauthenticated state
+  }
   
-  await HiveService.init();
+  try {
+    // HARD BLOCK: Prevent multiple Hive initializations on Flutter Web
+    if (!HiveService.isInitialized) {
+      await HiveService.init();
+    }
+    
+    // Initialize repository manager
+    repositoryManager.initialize();
+
+    // Initialize Notification Service
+    await NotificationService.init();
+  } catch (e) {
+    debugPrint('Initialization failed: $e');
+    // This is more critical, but we'll try to let the app start
+  }
+  
   runApp(const FreelancerApp());
 }
 
@@ -40,17 +66,37 @@ class FreelancerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Safety check: Is Hive ready?
+    if (!HiveService.isInitialized || !Hive.isBoxOpen(HiveBoxes.settings)) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData.dark(),
+        home: const Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 24),
+                Text('Waking up the command center...', style: TextStyle(color: Colors.white70)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return ValueListenableBuilder(
-      valueListenable: Hive.box('settings').listenable(),
+      valueListenable: Hive.box(HiveBoxes.settings).listenable(),
       builder: (context, box, _) {
-        final isDarkMode = box.get('isDarkMode', defaultValue: false);
-        final int primaryValue = box.get('primaryColor', defaultValue: 0xFF6366F1);
-        final int accentValue = box.get('accentColor', defaultValue: 0xFF10B981);
+        final isDarkMode = box.get(SettingsKeys.isDarkMode, defaultValue: false);
+        final int primaryValue = box.get(SettingsKeys.primaryColor, defaultValue: 0xFF6366F1);
+        final int accentValue = box.get(SettingsKeys.accentColor, defaultValue: 0xFF10B981);
         
         final Color primaryColor = Color(primaryValue);
         final Color accentColor = Color(accentValue);
 
-        return MaterialApp(
+        return MaterialApp.router(
           title: 'Freelancer App',
           debugShowCheckedModeBanner: false,
           themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
@@ -61,6 +107,7 @@ class FreelancerApp extends StatelessWidget {
               primary: primaryColor,
               secondary: accentColor,
               surface: Colors.white,
+              // ignore: deprecated_member_use
               background: const Color(0xFFF8FAFC),
             ),
             fontFamily: GoogleFonts.poppins().fontFamily,
@@ -77,13 +124,6 @@ class FreelancerApp extends StatelessWidget {
                 GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w500),
               ),
             ),
-            pageTransitionsTheme: const PageTransitionsTheme(
-              builders: {
-                TargetPlatform.android: ZoomPageTransitionsBuilder(),
-                TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-                TargetPlatform.windows: ZoomPageTransitionsBuilder(),
-              },
-            ),
           ),
           darkTheme: ThemeData(
             useMaterial3: true,
@@ -93,8 +133,8 @@ class FreelancerApp extends StatelessWidget {
               primary: primaryColor,
               secondary: accentColor,
               surface: const Color(0xFF0A0A0A), // Near black
+              // ignore: deprecated_member_use
               background: Colors.black, // Pure black for OLED
-              onBackground: Colors.white,
               onSurface: Colors.white,
             ),
             fontFamily: GoogleFonts.poppins().fontFamily,
@@ -111,67 +151,111 @@ class FreelancerApp extends StatelessWidget {
                 GoogleFonts.poppins(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white),
               ),
             ),
-            pageTransitionsTheme: const PageTransitionsTheme(
-              builders: {
-                 TargetPlatform.android: ZoomPageTransitionsBuilder(),
-                 TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
-                 TargetPlatform.windows: ZoomPageTransitionsBuilder(),
-              },
-            ),
           ),
-          home: StreamBuilder<User?>(
-            stream: FirebaseAuth.instance.authStateChanges(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SplashScreen();
-              }
-
-              final user = snapshot.data;
-              if (user != null) {
-                // If the user is logged in but not verified, hold them on a verification screen
-                if (!user.emailVerified && (user.providerData.any((p) => p.providerId == 'password'))) {
-                  return const EmailVerificationScreen();
-                }
-
-                return StatefulBuilder(
-                  builder: (context, setState) {
-                    final sync = SyncService();
-                    if (sync.needsMigration) {
-                      return SyncMigrationScreen(onComplete: () => setState(() {}));
-                    }
-                    CloudSyncService.init(); // Start background listener
-                    return const MainContainer();
-                  },
-                );
-              }
-
-              return const LoginScreen();
-            },
-          ),
+          
+          // Use Router config
+          routerConfig: AppRouter.router,
         );
       },
+    );
+  }
+
+  /// Initialize cloud sync service after migration is complete
+  Future<void> _initializeSync() async {
+    final sync = SyncService();
+    if (!sync.needsMigration && !CloudSyncService.isInitialized) {
+      await CloudSyncService.init();
+    }
+  }
+
+  /// Screen shown to phone auth users who need to add an email
+  Widget _buildEmailRequiredScreen() {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Email Required', style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Icon(
+              Icons.email_outlined,
+              size: 80,
+              color: Colors.blue[300],
+            ),
+            const SizedBox(height: 32),
+            Text(
+              'Email Required',
+              style: GoogleFonts.poppins(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'You signed in with a phone number. Please add an email address for account recovery and sync.',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 48),
+            Text(
+              'Please sign out and use email/Google sign-in instead.',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () async {
+                final auth = AuthService();
+                await auth.signOut();
+              },
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                'Sign Out',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
 class MainContainer extends StatefulWidget {
-  const MainContainer({super.key});
+  final Widget child;
+  const MainContainer({super.key, required this.child});
 
   @override
   State<MainContainer> createState() => _MainContainerState();
 }
 
 class _MainContainerState extends State<MainContainer> {
-  int _currentIndex = 0;
-
   Timer? _fabTimer;
 
   @override
   void initState() {
     super.initState();
-    _fabTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _fabTimer = Timer.periodic(AppDefaults.timerInterval, (timer) {
       if (mounted) {
-        final box = Hive.box<TaskItem>('tasks');
+        final box = Hive.box<TaskItem>(HiveBoxes.tasks);
         if (box.values.any((t) => t.isRunning)) {
           setState(() {});
         }
@@ -185,27 +269,56 @@ class _MainContainerState extends State<MainContainer> {
     super.dispose();
   }
 
-  final List<Widget> _screens = [
-    const DashboardScreen(),
-    const ProposalsScreen(),
-    const ProjectsScreen(),
-    const TasksScreen(),
-    const InvoicesScreen(),
-    const ClientsScreen(),
-  ];
+  // Calculate index based on route
+  int _calculateSelectedIndex(BuildContext context) {
+    // We can't access GoRouterState directly here easily without using the builder from ShellRoute.
+    // However, ShellRoute passes 'child'. 
+    // To get the index, we can rely on string matching the location.
+    // Or better, we define the logic in 'onDestinationSelected'.
+    
+    // A robust way to checking location string:
+    final String location = GoRouterState.of(context).uri.toString();
+    if (location.startsWith('/proposals')) return 1;
+    if (location.startsWith('/projects')) return 2;
+    if (location.startsWith('/tasks')) return 3;
+    if (location.startsWith('/invoices')) return 4;
+    if (location.startsWith('/clients')) return 5;
+    return 0; // dashboard
+  }
+
+  void _onItemTapped(int index, BuildContext context) {
+    HapticService.light();
+    switch (index) {
+      case 0:
+        context.go('/');
+        break;
+      case 1:
+        context.go('/proposals');
+        break;
+      case 2:
+        context.go('/projects');
+        break;
+      case 3:
+        context.go('/tasks');
+        break;
+      case 4:
+        context.go('/invoices');
+        break;
+      case 5:
+        context.go('/clients');
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final currentIndex = _calculateSelectedIndex(context);
 
     return Scaffold(
-      body: _screens[_currentIndex],
+      body: widget.child, // The ShellRoute child
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          HapticService.light();
-          setState(() => _currentIndex = index);
-        },
+        selectedIndex: currentIndex,
+        onDestinationSelected: (index) => _onItemTapped(index, context),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'Work'),
           NavigationDestination(icon: Icon(Icons.description_outlined), selectedIcon: Icon(Icons.description), label: 'Proposals'),
@@ -216,7 +329,7 @@ class _MainContainerState extends State<MainContainer> {
         ],
       ),
       floatingActionButton: ValueListenableBuilder(
-        valueListenable: Hive.box<TaskItem>('tasks').listenable(),
+        valueListenable: Hive.box<TaskItem>(HiveBoxes.tasks).listenable(),
         builder: (context, Box<TaskItem> box, _) {
           final runningTasks = box.values.where((t) => t.isRunning);
           if (runningTasks.isEmpty) return const SizedBox.shrink();
@@ -229,6 +342,8 @@ class _MainContainerState extends State<MainContainer> {
             margin: const EdgeInsets.only(bottom: 60), // Above BottomBar
             child: FloatingActionButton.extended(
               onPressed: () {
+                 // Requires modifying FocusScreen to be a route or keeping push
+                 // Pushing on top of Shell is fine for modals/focus
                  Navigator.push(context, MaterialPageRoute(builder: (_) => FocusScreen(task: activeTask)));
               },
               backgroundColor: Colors.black87,

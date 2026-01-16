@@ -17,11 +17,20 @@ class SecurityService {
     final Map<String, dynamic> backupData = {};
 
     for (final boxName in _boxesToBackup) {
-      final box = Hive.box(boxName);
-      // We convert the box values to a list of maps
-      // Since our models are HiveObjects, we use their existing toMap or similar logic if available, 
-      // but for standard Hive types, we can just iterate.
-      backupData[boxName] = box.values.toList();
+      try {
+        final box = Hive.box(boxName);
+        // We convert the box values to a list of maps
+        // Since our models are HiveObjects, we use their existing toMap or similar logic if available, 
+        // but for standard Hive types, we can just iterate.
+        backupData[boxName] = box.values.toList();
+      } catch (e) {
+        if (e.toString().contains('already open')) {
+          print('Box $boxName already open during backup, skipping');
+          backupData[boxName] = [];
+        } else {
+          rethrow;
+        }
+      }
     }
 
     return jsonEncode(backupData);
@@ -35,8 +44,9 @@ class SecurityService {
       final List<dynamic> items = entry.value;
 
       if (_boxesToBackup.contains(boxName)) {
-        final box = Hive.box(boxName);
-        await box.clear();
+        try {
+          final box = Hive.box(boxName);
+          await box.clear();
         
         for (final item in items) {
           // Re-insert based on ID if available
@@ -44,6 +54,13 @@ class SecurityService {
             await box.put(item['id'], _castToModel(boxName, item));
           } else {
             await box.add(_castToModel(boxName, item));
+          }
+        }
+        } catch (e) {
+          if (e.toString().contains('already open')) {
+            print('Box $boxName already open during restore, skipping');
+          } else {
+            rethrow;
           }
         }
       }

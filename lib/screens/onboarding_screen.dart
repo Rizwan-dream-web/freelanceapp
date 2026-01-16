@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:go_router/go_router.dart';
 import '../main.dart'; // To access MainContainer
+import '../repositories/repository_manager.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -33,10 +35,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   void _finishOnboarding() {
-    Hive.box('settings').put('hasSeenOnboarding', true);
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainContainer()),
-    );
+    repositoryManager.settings.set('hasSeenOnboarding', true);
+    context.go('/');
   }
 
   @override

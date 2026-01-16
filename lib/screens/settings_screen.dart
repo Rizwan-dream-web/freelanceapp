@@ -6,8 +6,11 @@ import 'dart:convert';
 import '../models/models.dart';
 import 'backup_screen.dart';
 import 'profile_screen.dart';
+import '../services/haptic_service.dart';
 import '../services/auth_service.dart';
+import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../repositories/repository_manager.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -23,7 +26,7 @@ class SettingsScreen extends StatelessWidget {
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: ValueListenableBuilder(
-        valueListenable: Hive.box('settings').listenable(),
+        valueListenable: repositoryManager.settings.box.listenable(),
         builder: (context, Box settingsBox, _) {
           final isDarkMode = settingsBox.get('isDarkMode', defaultValue: false);
           
@@ -172,10 +175,15 @@ class SettingsScreen extends StatelessWidget {
                   side: BorderSide(color: Colors.grey.withOpacity(0.2)),
                 ),
                 child: ListTile(
-                  leading: const Icon(Icons.shield, color: Colors.green),
-                  title: Text('Data Encrypted', style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
-                  subtitle: Text('AES-256 Bank-Grade Security Active', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
-                  trailing: const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  leading: const Icon(Icons.shield_outlined, color: Colors.blue),
+                  title: Text('Trust & Privacy', style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+                  subtitle: Text('AES-256 Encryption & Data Health', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
+                  trailing: const Icon(Icons.chevron_right, size: 20),
+                  onTap: () {
+                    HapticService.light();
+                    // GoRouter push
+                    GoRouter.of(context).push('/trust-center');
+                  },
                 ),
               ),
 

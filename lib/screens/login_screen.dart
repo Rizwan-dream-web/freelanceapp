@@ -322,9 +322,16 @@ class _EmailFormState extends State<_EmailForm> {
           decoration: InputDecoration(
             labelText: 'Password',
             prefixIcon: const Icon(Icons.lock_outline),
-            suffixIcon: IconButton(
-              icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+            suffixIcon: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 200),
+              child: IconButton(
+                key: ValueKey<bool>(_obscurePassword),
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                ),
+                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+              ),
             ),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),

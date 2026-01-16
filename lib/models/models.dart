@@ -238,6 +238,8 @@ class ProposalAdapter extends TypeAdapter<Proposal> {
   }
 }
 
+enum ProjectChaseStatus { onTrack, atRisk, needsAttention }
+
 // --- Project Model ---
 class Project extends HiveObject {
   String id;
@@ -246,7 +248,7 @@ class Project extends HiveObject {
   double budget;
   String status; // 'Not Started', 'In Progress', 'On Hold', 'Completed'
   DateTime deadline;
-  int estimatedHours; // New for v2
+  int estimatedHours; // Optional
   String? clientId; // Link to Client model
   String currency; // 'USD' or 'INR'
   String? uid;
@@ -263,6 +265,29 @@ class Project extends HiveObject {
     this.currency = 'USD',
     this.uid,
   });
+
+  // Chase Logic Status
+  ProjectChaseStatus get chaseStatus {
+    if (status == 'Completed') return ProjectChaseStatus.onTrack;
+    
+    final now = DateTime.now();
+    final difference = deadline.difference(now).inDays;
+    
+    if (difference < 0) return ProjectChaseStatus.needsAttention; // Overdue
+    if (difference <= 2) return ProjectChaseStatus.atRisk; // 2 days or less
+    if (difference <= 7) return ProjectChaseStatus.atRisk; // 1 week or less
+    
+    return ProjectChaseStatus.onTrack;
+  }
+
+  String get chaseStatusLabel {
+    switch (chaseStatus) {
+      case ProjectChaseStatus.onTrack: return 'On Track';
+      case ProjectChaseStatus.atRisk: return 'At Risk';
+      case ProjectChaseStatus.needsAttention: return 'Needs Attention';
+    }
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,

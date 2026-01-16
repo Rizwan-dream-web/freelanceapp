@@ -1,7 +1,5 @@
 import 'package:hive/hive.dart';
 
-part 'user_profile.g.dart';
-
 @HiveType(typeId: 6)
 class UserProfile extends HiveObject {
   @HiveField(0)
@@ -51,5 +49,32 @@ class UserProfile extends HiveObject {
       createdAt: DateTime.fromMillisecondsSinceEpoch(map['createdAt']),
       phone: map['phone'],
     );
+  }
+}
+
+class UserProfileAdapter extends TypeAdapter<UserProfile> {
+  @override
+  final int typeId = 6;
+
+  @override
+  UserProfile read(BinaryReader reader) {
+    return UserProfile(
+      uid: reader.readString(),
+      name: reader.readString(),
+      email: reader.readString(),
+      photoUrl: reader.readString(),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(reader.readInt()),
+      phone: reader.readString(),
+    );
+  }
+
+  @override
+  void write(BinaryWriter writer, UserProfile obj) {
+    writer.writeString(obj.uid);
+    writer.writeString(obj.name);
+    writer.writeString(obj.email);
+    writer.writeString(obj.photoUrl ?? '');
+    writer.writeInt(obj.createdAt.millisecondsSinceEpoch);
+    writer.writeString(obj.phone ?? '');
   }
 }

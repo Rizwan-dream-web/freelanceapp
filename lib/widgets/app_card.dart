@@ -6,6 +6,7 @@ class AppCard extends StatefulWidget {
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final Color? color;
   final double borderRadius;
   final List<BoxShadow>? shadow;
@@ -16,6 +17,7 @@ class AppCard extends StatefulWidget {
     this.padding,
     this.margin,
     this.onTap,
+    this.onLongPress,
     this.color,
     this.borderRadius = 24.0,
     this.shadow,
@@ -40,6 +42,7 @@ class _AppCardState extends State<AppCard> {
       onTapUp: widget.onTap == null ? null : (_) => setState(() => _isPressed = false),
       onTapCancel: widget.onTap == null ? null : () => setState(() => _isPressed = false),
       onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 100),
         curve: Curves.easeInOut,

@@ -10,6 +10,7 @@ import '../widgets/app_card.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import '../repositories/repository_manager.dart';
 
 class ProposalsScreen extends StatelessWidget {
   const ProposalsScreen({super.key});
@@ -38,10 +39,16 @@ class ProposalsScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: ValueListenableBuilder(
-          valueListenable: Hive.box<Proposal>('proposals').listenable(),
-          builder: (context, Box<Proposal> box, _) {
-            final proposals = box.values.toList().cast<Proposal>();
+        body: StreamBuilder<List<Proposal>>(
+          stream: repositoryManager.proposals.getAll(),
+          initialData: repositoryManager.proposals.getAllSync(),
+          builder: (context, snapshot) {
+            // Only show loader if we have no data at all
+            if (!snapshot.hasData) {
+               return const Center(child: CircularProgressIndicator());
+            }
+
+            final proposals = snapshot.data!;
             proposals.sort((a, b) => b.dateSent.compareTo(a.dateSent));
 
             return TabBarView(
@@ -199,9 +206,8 @@ class ProposalsScreen extends StatelessWidget {
   }
 
 
-  void _convertToProject(BuildContext context, Proposal proposal) {
+  void _convertToProject(BuildContext context, Proposal proposal) async {
       // 1. Create Project
-      final projectBox = Hive.box<Project>('projects');
       final newProjectId = const Uuid().v4();
       final newProject = Project(
         id: newProjectId,
@@ -212,13 +218,13 @@ class ProposalsScreen extends StatelessWidget {
         status: 'Not Started',
         estimatedHours: (proposal.estimatedBudget / 50).round(), // Smart guess: $50/hr
       );
-      projectBox.put(newProjectId, newProject);
+      await repositoryManager.projects.save(newProject);
 
       // 2. Update Proposal Status
       if (proposal.status != 'Accepted') {
         HapticService.success();
         proposal.status = 'Accepted';
-        proposal.save();
+        await repositoryManager.proposals.save(proposal);
       }
 
       // 3. Feedback
@@ -382,10 +388,9 @@ class _ProposalFormState extends State<ProposalForm> {
     );
   }
 
-  void _save() {
+  void _save() async {
     if (_formKey.currentState!.validate()) {
       HapticService.success();
-      final box = Hive.box<Proposal>('proposals');
       final id = widget.proposal?.id ?? const Uuid().v4();
       final newProposal = Proposal(
         id: id,
@@ -399,17 +404,16 @@ class _ProposalFormState extends State<ProposalForm> {
         style: _style,
       );
 
-      box.put(id, newProposal);
-      
+      await repositoryManager.proposals.save(newProposal);
+
       Navigator.pop(context);
     }
   }
 
-  void _delete() {
+  void _delete() async {
     if (widget.proposal != null) {
        HapticService.medium();
-       final box = Hive.box<Proposal>('proposals');
-       box.delete(widget.proposal!.id);
+       await repositoryManager.proposals.delete(widget.proposal!.id);
        Navigator.pop(context);
     }
   }

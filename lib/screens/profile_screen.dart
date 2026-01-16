@@ -16,6 +16,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _photoController = TextEditingController();
   bool _isLoading = true;
   bool _isSaving = false;
 

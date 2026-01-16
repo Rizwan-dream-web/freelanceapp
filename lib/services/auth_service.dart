@@ -1,10 +1,15 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
+import '../constants/app_constants.dart';
+import 'cloud_sync_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    clientId: kIsWeb ? '843090921240-qhjj9ffav04bn4rjr7st20dvrj7kf2m2.apps.googleusercontent.com' : null,
+  );
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   // Stream for auth changes
@@ -166,7 +171,7 @@ class AuthService {
     String? phone,
   }) async {
     try {
-      await _db.collection('users').doc(uid).set({
+      await _db.collection(FirestoreCollections.users).doc(uid).set({
         'uid': uid,
         'name': name,
         'email': email,
@@ -185,7 +190,7 @@ class AuthService {
   // 7. Get user profile
   Future<Map<String, dynamic>?> getUserProfile(String uid) async {
     try {
-      final doc = await _db.collection('users').doc(uid).get();
+      final doc = await _db.collection(FirestoreCollections.users).doc(uid).get();
       return doc.data();
     } catch (e) {
       // Firestore might be disabled - return null gracefully
@@ -197,18 +202,16 @@ class AuthService {
   // 8. Update user profile
   Future<void> updateUserProfile(String uid, Map<String, dynamic> data) async {
     try {
-      await _db.collection('users').doc(uid).update(data);
+      await _db.collection(FirestoreCollections.users).doc(uid).update(data);
     } catch (e) {
       // If document doesn't exist, create it
       if (e.toString().contains('NOT_FOUND')) {
         try {
-          await _db.collection('users').doc(uid).set(data);
+          await _db.collection(FirestoreCollections.users).doc(uid).set(data);
         } catch (e2) {
-          print('Warning: Could not update/create Firestore profile: $e2');
           throw Exception('Firestore API not enabled. Please enable it in Firebase Console.');
         }
       } else {
-        print('Warning: Could not update Firestore profile: $e');
         throw Exception('Firestore API not enabled. Please enable it in Firebase Console.');
       }
     }
@@ -216,6 +219,8 @@ class AuthService {
 
   // 9. Sign Out
   Future<void> signOut() async {
+    // Clean up cloud sync listeners before signing out
+    await CloudSyncService.dispose();
     await _googleSignIn.signOut();
     await _auth.signOut();
   }

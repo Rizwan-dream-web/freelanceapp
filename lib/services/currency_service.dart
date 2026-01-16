@@ -1,12 +1,12 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
+import '../repositories/repository_manager.dart';
 
 class CurrencyService {
   static const double usdToInr = 83.0; // Current market rate approximation
 
   static String get globalCurrency {
-    final box = Hive.box('settings');
-    return box.get('globalCurrency', defaultValue: 'USD');
+    return repositoryManager.settings.get('globalCurrency', defaultValue: 'USD');
   }
 
   static double convert(double amount, String from) {
@@ -36,4 +36,8 @@ class CurrencyService {
   }
 
   static String get symbol => globalCurrency == 'INR' ? '₹' : '\$';
+
+  static String getSymbol(String code) {
+    return code == 'INR' ? '₹' : '\$';
+  }
 }

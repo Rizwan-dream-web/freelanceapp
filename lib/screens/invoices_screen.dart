@@ -14,6 +14,7 @@ import '../widgets/app_card.dart';
 import 'package:confetti/confetti.dart';
 import '../services/invoice_pdf_generator.dart';
 import '../services/haptic_service.dart';
+import '../repositories/repository_manager.dart';
 
 class InvoicesScreen extends StatefulWidget {
   const InvoicesScreen({super.key});
@@ -49,10 +50,17 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
             backgroundColor: Theme.of(context).colorScheme.surface,
             foregroundColor: Theme.of(context).colorScheme.onSurface,
           ),
-          body: ValueListenableBuilder(
-            valueListenable: Hive.box<Invoice>('invoices').listenable(),
-            builder: (context, Box<Invoice> box, _) {
-              if (box.isEmpty) {
+          body: StreamBuilder<List<Invoice>>(
+            stream: repositoryManager.invoices.getAll(),
+            initialData: repositoryManager.invoices.getAllSync(),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final invoices = snapshot.data!;
+
+              if (invoices.isEmpty) {
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -64,7 +72,7 @@ class _InvoicesScreenState extends State<InvoicesScreen> {
                   ),
                 );
               }
-              final invoices = box.values.toList().cast<Invoice>();
+
               // Sort by date descending
               invoices.sort((a,b) => b.date.compareTo(a.date));
 
@@ -348,8 +356,8 @@ class _InvoiceFormState extends State<InvoiceForm> {
     _loadProjects();
   }
 
-  void _loadProjects() {
-    _projects = Hive.box<Project>('projects').values.toList();
+  void _loadProjects() async {
+    _projects = await repositoryManager.projects.getAllOnce();
   }
 
   @override
@@ -360,9 +368,8 @@ class _InvoiceFormState extends State<InvoiceForm> {
     super.dispose();
   }
 
-  void _save() {
+  void _save() async {
     if (_formKey.currentState!.validate()) {
-      final box = Hive.box<Invoice>('invoices');
       final id = const Uuid().v4();
       final newInvoice = Invoice(
         id: id,
@@ -377,15 +384,15 @@ class _InvoiceFormState extends State<InvoiceForm> {
         description: _descriptionController.text,
       );
 
-      box.put(id, newInvoice);
+      await repositoryManager.invoices.save(newInvoice);
       Navigator.pop(context);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-      double hourlyRate = Hive.box('settings').get('defaultRate', defaultValue: 50.0);
-      double taxRate = Hive.box('settings').get('defaultTax', defaultValue: 0.0);
+      double hourlyRate = repositoryManager.settings.get('defaultRate', defaultValue: 50.0);
+      double taxRate = repositoryManager.settings.get('defaultTax', defaultValue: 0.0);
       
       // Initialize if empty (and not edited by user manually yet - simple check)
       if (_amountController.text.isEmpty) {

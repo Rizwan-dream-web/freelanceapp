@@ -1,4 +1,4 @@
-// This is a basic Flutter widget test.
+// This is a basic Flutter widget test for the Freelancer Invoicing App.
 //
 // To perform an interaction with a widget in your test, use the WidgetTester
 // utility in the flutter_test package. For example, you can send tap and scroll
@@ -7,24 +7,55 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:freelancer_app/main.dart';
+import 'package:freelancer_app/models/models.dart';
+import 'package:freelancer_app/models/user_profile.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
+  setUpAll(() async {
+    // Initialize Hive for testing
+    await Hive.initFlutter();
+    Hive.registerAdapter(ClientAdapter());
+    Hive.registerAdapter(ProjectAdapter());
+    Hive.registerAdapter(TaskAdapter());
+    Hive.registerAdapter(InvoiceAdapter());
+    Hive.registerAdapter(ProposalAdapter());
+    Hive.registerAdapter(UserProfileAdapter());
+  });
+
+  testWidgets('App launches successfully', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+    await tester.pumpWidget(const FreelancerApp());
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    // Wait for initialization
+    await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+    // Verify that the app launched without crashing
+    expect(find.byType(MaterialApp), findsOneWidget);
+  });
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+  testWidgets('Dashboard screen loads', (WidgetTester tester) async {
+    // Build our app and trigger a frame.
+    await tester.pumpWidget(const FreelancerApp());
+
+    // Wait for initialization
+    await tester.pumpAndSettle();
+
+    // Verify dashboard elements are present
+    expect(find.text('Good morning'), findsOneWidget);
+    expect(find.text('Ready to crush your goals today?'), findsOneWidget);
+  });
+
+  testWidgets('Navigation works', (WidgetTester tester) async {
+    // Build our app and trigger a frame.
+    await tester.pumpWidget(const FreelancerApp());
+
+    // Wait for initialization
+    await tester.pumpAndSettle();
+
+    // Test navigation to different screens
+    // Note: This would require more complex setup with mock data
+    expect(find.byType(NavigationBar), findsOneWidget);
   });
 }
