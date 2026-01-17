@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
+import 'package:intl/intl.dart';
 import '../models/models.dart';
 import '../widgets/app_card.dart';
 import '../services/haptic_service.dart';
@@ -14,6 +15,8 @@ import '../widgets/loading.dart';
 import '../widgets/forms.dart';
 import '../widgets/buttons.dart';
 import '../repositories/repository_manager.dart';
+import '../services/currency_service.dart';
+import '../widgets/client_history_sheet.dart';
 
 class ClientsScreen extends StatelessWidget {
   const ClientsScreen({super.key});
@@ -43,8 +46,8 @@ class ClientsScreen extends StatelessWidget {
               
               if (clientSnapshot.data!.isEmpty) {
                 return LoadingOverlay(
-                  isLoading: false,
-                  child: _buildEmptyState(context),
+                   isLoading: false,
+                   child: _buildEmptyState(context),
                 );
               }
 
@@ -142,14 +145,22 @@ class ClientsScreen extends StatelessWidget {
                                       Column(
                                         crossAxisAlignment: CrossAxisAlignment.end,
                                         children: [
-                                          Text('LTV', style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text('LIFETIME VALUE', style: GoogleFonts.poppins(fontSize: 8, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                                          ),
+                                          const SizedBox(height: 4),
                                           TweenAnimationBuilder<double>(
                                             tween: Tween<double>(begin: 0, end: lifetimeValue),
                                             duration: const Duration(milliseconds: 1200),
                                             curve: Curves.easeOutExpo,
                                             builder: (context, val, _) {
                                               return Text(
-                                                '\$${val.toInt()}',
+                                                '${CurrencyService.getSymbol(CurrencyService.globalCurrency)}${NumberFormat('#,###').format(val.toInt())}',
                                                 style: GoogleFonts.poppins(fontWeight: FontWeight.bold, fontSize: 20),
                                               );
                                             },
@@ -183,7 +194,15 @@ class ClientsScreen extends StatelessWidget {
                                       ),
                                       const Spacer(),
                                       TextButton(
-                                        onPressed: () {},
+                                        onPressed: () {
+                                          HapticService.medium();
+                                          showModalBottomSheet(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            backgroundColor: Colors.transparent,
+                                            builder: (context) => ClientHistorySheet(client: client),
+                                          );
+                                        },
                                         child: Text('View History', style: GoogleFonts.poppins(fontSize: 11, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
                                       ),
                                     ],
