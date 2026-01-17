@@ -25,11 +25,12 @@ class _InteractiveBarChartState extends State<InteractiveBarChart> {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).colorScheme.primary;
+    
     return BarChart(
       BarChartData(
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
-            // tooltipBgColor: Colors.blueGrey, // Removed in newer versions, use getTooltipItem
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
                return BarTooltipItem(
                  '${rod.toY.toStringAsFixed(1)}h',
@@ -88,13 +89,13 @@ class _InteractiveBarChartState extends State<InteractiveBarChart> {
             barRods: [
               BarChartRodData(
                 toY: value,
-                color: (isTouched || isToday) ? widget.touchedColor : widget.barColor,
+                color: (isTouched || isToday) ? primaryColor : primaryColor.withOpacity(0.2),
                 width: 16,
                 borderRadius: BorderRadius.circular(4),
                 backDrawRodData: BackgroundBarChartRodData(
                   show: true,
                   toY: (widget.dailyValues.reduce((curr, next) => curr > next ? curr : next) * 1.2).clamp(12.0, 24.0), 
-                  color: widget.barColor.withOpacity(0.1),
+                  color: primaryColor.withOpacity(0.05),
                 ),
               ),
             ],

@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../services/haptic_service.dart';
 
@@ -49,20 +50,30 @@ class _AppCardState extends State<AppCard> {
         margin: widget.margin ?? const EdgeInsets.only(bottom: 16),
         transform: Matrix4.identity()..scale(_isPressed ? 0.98 : 1.0),
         decoration: BoxDecoration(
-          color: widget.color ?? Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor,
+          color: widget.color ?? (isDark ? Colors.black.withOpacity(0.2) : Colors.white.withOpacity(0.7)),
           borderRadius: BorderRadius.circular(widget.borderRadius),
+          border: Border.all(
+            color: isDark ? Colors.white.withOpacity(0.08) : Colors.white.withOpacity(0.8),
+            width: 1,
+          ),
           boxShadow: widget.shadow ?? [
             BoxShadow(
-              color: isDark ? Colors.black.withOpacity(0.4) : Colors.black.withOpacity(0.06),
-              blurRadius: _isPressed ? 10 : 25,
-              offset: Offset(0, _isPressed ? 4 : 12),
-              spreadRadius: isDark ? 1 : 0,
+              color: isDark ? Colors.black.withOpacity(0.4) : Colors.black.withOpacity(0.04),
+              blurRadius: _isPressed ? 10 : 30,
+              offset: Offset(0, _isPressed ? 4 : 15),
+              spreadRadius: isDark ? 1 : -5,
             ),
           ],
         ),
-        child: Padding(
-          padding: widget.padding ?? const EdgeInsets.all(20),
-          child: widget.child,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(widget.borderRadius),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+            child: Padding(
+              padding: widget.padding ?? const EdgeInsets.all(20),
+              child: widget.child,
+            ),
+          ),
         ),
       ),
     );
