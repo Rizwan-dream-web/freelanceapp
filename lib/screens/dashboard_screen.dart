@@ -28,6 +28,7 @@ import '../widgets/dashboard/stat_card.dart';
 import '../widgets/dashboard/daily_effort_banner.dart';
 import '../widgets/dashboard/dashboard_action_chip.dart';
 import '../widgets/staggered_anim.dart';
+import '../widgets/glass_container.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -137,19 +138,41 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
       ),
       body: Stack(
         children: [
-          // Elegant Background
+          // Elegant iOS-style Background
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
                 colors: [
-                  const Color(0xFF1E1E2C).withOpacity(0.05),
+                  Theme.of(context).brightness == Brightness.dark 
+                      ? const Color(0xFF121212) 
+                      : const Color(0xFFF2F2F7), // iOS Background Color
                   Theme.of(context).scaffoldBackgroundColor,
                 ],
               ),
             ),
           ),
+          
+          // Subtle circular gradients for glass effect depth
+          if (Theme.of(context).brightness == Brightness.light)
+            Positioned(
+              top: -100,
+              right: -100,
+              child: Container(
+                width: 300,
+                height: 300,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      Theme.of(context).colorScheme.primary.withOpacity(0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           
           StreamBuilder<List<Project>>(
             stream: repositoryManager.projects.getAll(),
@@ -315,13 +338,10 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
                                   StaggeredAnim(
                                     index: 2,
                                     controller: _animController,
-                                    child: Container(
+                                    child: GlassContainer(
                                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.1)),
-                                      ),
+                                      borderRadius: 16,
+                                      opacity: 0.05,
                                       child: Row(
                                         children: [
                                           Icon(Icons.auto_awesome, size: 18, color: Theme.of(context).colorScheme.primary),
