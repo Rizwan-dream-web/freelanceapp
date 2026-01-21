@@ -11,7 +11,6 @@ This document tracks the implementation of advanced features for the Freelancer 
 
 ## 🤖 1. AI & Intelligent Automation
 - 📋 **AI Proposal Architect**: Generate professional proposal text based on project requirements using LLM integration.
-- 📋 **Smart Receipt OCR**: Scan receipts via camera and automatically extract vendor, amount, and category.
 - 📋 **Predictive Income Forecasting**: Dashboard visualization of projected earnings based on pipeline.
 - 📋 **Auto-Chase Assistant**: Automated follow-up logic for overdue invoices (Email/WhatsApp).
 
